@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Description: IBMi netdata python.d module
+# Description: IBM i netdata python.d external collector module
 # Author: Andrew Love
 
 from copy import deepcopy
@@ -9,7 +9,6 @@ from bases.FrameworkServices.SimpleService import SimpleService
 try:
     import psycopg
     from psycopg import extensions
-    from psycopg.extras import DictCursor
     from psycopg import OperationalError
     HAS_DB = True
 except ImportError:
