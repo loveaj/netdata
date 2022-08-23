@@ -20,10 +20,10 @@ ORDER = [
 
 CHARTS = {
     'asp_utilisation': {
-        'options': [None, 'System ASP Used', '%', 'storage statistics', 'ibmi.asp_utilisation', 'line'],
+        'options': [None, 'System ASP Utilisation', '%', 'storage statistics', 'ibmi.asp_utilisation', 'line'],
         'lines': [
-            ['system_asp_storage', 'total', 'absolute', 1, 1000000],
-            ['system_asp_used', 'used', 'absolute', 1, 1],
+            ['system_disk_storage', 'total', 'absolute', 1, 1000000],
+            ['system_disk_used', 'used', 'absolute', 1, 1],
         ]
     },
 }
@@ -31,16 +31,18 @@ CHARTS = {
 DB_CONNECT_STRING = "{0}/{1}@//{2}/{3}"
 
 QUERY_ASP = '''
-SELECT
-  s.main_storage_size,
-  s.system_asp_storage,
-  s.system_asp_used
-FROM
-  system_status_info s
+SELECT 
+    "SYSTEM_ASP_STORAGE", 
+    "TOTAL_AUXILIARY_STORAGE", 
+    "SYSTEM_ASP_USED" 
+FROM system_status_info AS ssi
 '''
 
-SYS_METRICS = {
-    'ASP Utilisation %': 'asp_utilisation',
+ASP_METRICS = {
+    'System ASP Storage':'system_asp_storage',
+    'Total Auxillary Storage':'total_auxillary_storage',
+    'System ASP Used':'system_asp_used',
+    'System ASP Utilisation Percentage': 'asp_utilisation_precent',
 }
 
 
@@ -49,6 +51,7 @@ class Service(SimpleService):
         SimpleService.__init__(self, configuration=configuration, name=name)
         self.order = ORDER
         self.definitions = deepcopy(CHARTS)
+        self.database = configuration.get('database')
         self.user = configuration.get('user')
         self.password = configuration.get('password')
         self.server = configuration.get('server')
@@ -81,11 +84,12 @@ class Service(SimpleService):
             return False
 
         if not all([
+            self.database,
             self.user,
             self.password,
             self.server,
         ]):
-            self.error("one of these parameters is not specified: user, password, server")
+            self.error("one of these parameters is not specified: database, user, password, server")
             return False
 
         if not self.connect():
@@ -99,4 +103,57 @@ class Service(SimpleService):
 
         data = dict()
 
+        # ASP usage
+        try:
+            rv = self.gather_asp_metrics()
+        except psycopg.Error as error:
+            self.error(error)
+            self.alive = False
+            return None
+         else:
+            for name, value in rv:
+                if name not in ASP_METRICS:
+                    continue
+                data[ASP_METRICS[name]] = int(float(value) * 1000) 
+
         return data or None
+
+
+    def gather_asp_metrics(self):
+        """
+        :return:
+
+        [['System ASP Storage', 0],
+         ['System ASP Used', 0],
+         ['Total Auxiliary Storage', 0]]
+        """
+        metrics = list()
+        with self.conn.cursor() as cursor:
+            cursor.execute(QUERY_ASP)
+            for SYSTEM_ASP_STORAGE, TOTAL_AUXILIARY_STORAGE, SYSTEM_ASP_USED in cursor.fetchall():
+                if SYSTEM_ASP_USED is None:
+                    offline = True
+                    system_disk_used = 0
+                else:
+                    offline = False
+                    system_disk_used = float(SYSTEM_ASP_USED)
+
+                if SYSTEM_ASP_STORAGE is None:
+                    system_disk_storage = 0
+                else:
+                    system_disk_storage = float(SYSTEM_ASP_STORAGE)
+
+                if TOTAL_AUXILIARY_STORAGE is None:
+                    system_disk_total_auxiliary_storage = 0
+                else:
+                    system_disk_total_auxiliary_storage = float(TOTAL_AUXILIARY_STORAGE)
+
+                metrics.append(
+                    [
+                        offline,
+                        system_disk_storage,
+                        system_disk_used,
+                        system_disk_total_auxiliary_storage,
+                    ]
+                )
+        return metrics
