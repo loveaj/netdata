@@ -1,4 +1,4 @@
-# Setting up the python dev environment on macOS
+install pyenv-virtualenvgit clone https://github.com/pyenv/pyenv-virtualenvwrapper.git $(pyenv root)/plugins/pyenv-virtualenvwrapper# Setting up the python dev environment on macOS
 
 Using virtual environments and getting package imports to work
 
