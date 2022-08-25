@@ -11,7 +11,7 @@ try:
     from psycopg import extensions
     from psycopg import OperationalError
     HAS_DB = True
-except ImportError:
+except ImportError: 
     HAS_DB = False
 
 ORDER = [
@@ -84,37 +84,19 @@ class Service(SimpleService):
             return False
 
         if not all([
-            self.database,
             self.user,
             self.password,
             self.server,
         ]):
-            self.error("one of these parameters is not specified: database, user, password, server")
+            self.error("one of these parameters is not specified: user, password, server")
             return False
-
-        if not self.connect():
-            return False
-
-        return bool(self.get_data())
+        return bool(self.get_data()) if self.connect() else False
 
     def get_data(self):
         if not self.alive and not self.reconnect():
             return None
 
         data = dict()
-
-        # ASP usage
-        try:
-            rv = self.gather_asp_metrics()
-        except psycopg.Error as error:
-            self.error(error)
-            self.alive = False
-            return None
-        else:
-            for name, value in rv:
-                if name not in ASP_METRICS:
-                    continue
-                data[ASP_METRICS[name]] = int(float(value) * 1000) 
 
         return data or None
 
