@@ -80,7 +80,7 @@ class Service(SimpleService):
 
     def check(self):
         if not HAS_DB:
-            self.error("'ibm_db' package is needed to use ibm_db module")
+            self.error("'psycopg' package is needed to use psycopg module")
             return False
 
         if not all([
@@ -110,7 +110,7 @@ class Service(SimpleService):
             self.error(error)
             self.alive = False
             return None
-         else:
+        else:
             for name, value in rv:
                 if name not in ASP_METRICS:
                     continue
