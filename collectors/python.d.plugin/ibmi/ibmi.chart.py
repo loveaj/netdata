@@ -17,24 +17,33 @@ except ImportError:
 ORDER = [
     'asp_utilisation',
     'cpu_utilisation',
+    'job_stats',
 ]
 
 CHARTS = {
     'asp_utilisation': {
         'options': [None, 'System ASP Utilisation', '%', 'storage statistics', 'ibmi.asp_utilisation', 'line'],
         'lines': [
-            ['system_disk_storage', 'total', 'absolute', 1, 1000000],
+            ['system_disk_storage', 'total', 'absolute', 1, 1],
             ['system_disk_used', 'used', 'absolute', 1, 1],
         ]
     },
     'cpu_utilisation': {
         'options': [None, 'System CPU Utilisation', '%', 'cpu statistics', 'ibmi.cpu_utilisation', 'line'],
         'lines': [
-            ['system_current_cpu_capacity', 'total', 'absolute', 1, 1000000],
-            ['system_avg_cpu_rate', 'used', 'absolute', 1, 1],
-            ['system_avg_cpu_utilisation', 'used', 'absolute', 1, 1],
-            ['system_max_cpu_utilisation', 'used', 'absolute', 1, 1],
-            ['system_min_cpu_utilisation', 'used', 'absolute', 1, 1],
+            ['system_current_cpu_capacity', 'total', 'absolute', 1, 1],
+            ['system_avg_cpu_rate', 'average rate', 'absolute', 1, 1],
+            ['system_avg_cpu_utilisation', 'average utilisation', 'absolute', 1, 1],
+            ['system_max_cpu_utilisation', 'maximum utilisation', 'absolute', 1, 1],
+            ['system_min_cpu_utilisation', 'minimum utilisation', 'absolute', 1, 1],
+        ]
+    },
+    'job_stats': {
+        'options': [None, 'System Job Statistics', '%', 'job statistics', 'ibmi.job_stats', 'line'],
+        'lines': [
+            ['system_total_jobs', 'total', 'absolute', 1, 1],
+            ['system_active_jobs', 'active', 'absolute', 1, 1],
+            ['system_interactive_jobs', 'interactive', 'absolute', 1, 1],
         ]
     },
 }
