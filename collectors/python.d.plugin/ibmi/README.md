@@ -58,3 +58,12 @@ remote:
 All parameters are required. Without them module will fail to start.
 
 
+## OS specifics
+
+### Linux
+Netdata custom plugin `/usr/libexec/netdata/python.d`  
+Netdata custom plugin config `/opt/homebrew/etc/netdata/python.d`  
+
+### MacOS
+Netdata custom plugin `/opt/homebrew/opt/netdata/libexec/netdata/python.d`  
+Netdata custom plugin config `/etc/netdata/python.d`  
