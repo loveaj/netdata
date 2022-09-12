@@ -3,19 +3,20 @@
 # Author: Andrew Love
 
 from copy import deepcopy
+from xml.etree.ElementTree import tostring
 
 from bases.FrameworkServices.SimpleService import SimpleService
 
+
 try:
     import psycopg
-    from psycopg import extensions
-    from psycopg import OperationalError
     HAS_DB = True
 except ImportError: 
     HAS_DB = False
 
 ORDER = [
     'asp_utilisation',
+    'cpu_utilisation',
 ]
 
 CHARTS = {
@@ -26,23 +27,46 @@ CHARTS = {
             ['system_disk_used', 'used', 'absolute', 1, 1],
         ]
     },
+    'cpu_utilisation': {
+        'options': [None, 'System CPU Utilisation', '%', 'cpu statistics', 'ibmi.cpu_utilisation', 'line'],
+        'lines': [
+            ['system_current_cpu_capacity', 'total', 'absolute', 1, 1000000],
+            ['system_avg_cpu_rate', 'used', 'absolute', 1, 1],
+            ['system_avg_cpu_utilisation', 'used', 'absolute', 1, 1],
+            ['system_max_cpu_utilisation', 'used', 'absolute', 1, 1],
+            ['system_min_cpu_utilisation', 'used', 'absolute', 1, 1],
+        ]
+    },
 }
 
-DB_CONNECT_STRING = "{0}/{1}@//{2}/{3}"
-
-QUERY_ASP = '''
+QUERY_SYSTEM_STATUS_INFO = '''
 SELECT 
-    "SYSTEM_ASP_STORAGE", 
-    "TOTAL_AUXILIARY_STORAGE", 
-    "SYSTEM_ASP_USED" 
+    "MAIN_STORAGE_SIZE",
+    "SYSTEM_ASP_STORAGE",
+    "SYSTEM_ASP_USED",
+    "CURRENT_CPU_CAPACITY",
+    "MAXIMUM_CPU_UTILIZATION",
+    "AVERAGE_CPU_RATE",
+    "AVERAGE_CPU_UTILIZATION",
+    "MINIMUM_CPU_UTILIZATION",
+    "TOTAL_JOBS_IN_SYSTEM",
+    "ACTIVE_JOBS_IN_SYSTEM",
+    "INTERACTIVE_JOBS_IN_SYSTEM"
 FROM system_status_info AS ssi
 '''
 
-ASP_METRICS = {
-    'System ASP Storage':'system_asp_storage',
-    'Total Auxillary Storage':'total_auxillary_storage',
-    'System ASP Used':'system_asp_used',
-    'System ASP Utilisation Percentage': 'asp_utilisation_precent',
+SYSTEM_STATUS_METRICS = {
+    'MAIN_STORAGE_SIZE':'system_main_storage_size',
+    'SYSTEM_ASP_STORAGE':'system_disk_storage',
+    'SYSTEM_ASP_USED':'system_disk_used',
+    'CURRENT_CPU_CAPACITY':'system_current_cpu_capacity',
+    'MAXIMUM_CPU_UTILIZATION':'system_max_cpu_utilisation',
+    'AVERAGE_CPU_RATE':'system_avg_cpu_rate',
+    'AVERAGE_CPU_UTILIZATION':'system_avg_cpu_utilisation',
+    'MINIMUM_CPU_UTILIZATION':'system_min_cpu_utilisation',
+    'TOTAL_JOBS_IN_SYSTEM':'system_total_jobs',
+    'ACTIVE_JOBS_IN_SYSTEM':'system_active_jobs',
+    'INTERACTIVE_JOBS_IN_SYSTEM':'system_interactive_jobs'
 }
 
 
@@ -64,10 +88,13 @@ class Service(SimpleService):
             self.conn = None
 
         try:
-            self.conn = psycopg.connect(**self.conn_params)
-            self.conn.set_isolation_level(extensions.ISOLATION_LEVEL_AUTOCOMMIT)
-            self.conn.set_session(readonly=True)
-        except OperationalError as error:
+            self.conn = psycopg.connect(
+                host=self.server,
+                dbname=self.database,
+                user=self.user,
+                password=self.password
+            )
+        except psycopg.OperationalError as error:
             self.error(error)
             self.alive = False
         else:
@@ -84,58 +111,136 @@ class Service(SimpleService):
             return False
 
         if not all([
+            self.database,
             self.user,
             self.password,
             self.server,
         ]):
-            self.error("one of these parameters is not specified: user, password, server")
+            self.error("one of these parameters is not specified: database, user, password, server")
             return False
+        
         return bool(self.get_data()) if self.connect() else False
 
-    def get_data(self):
+    def get_data(self):         
         if not self.alive and not self.reconnect():
             return None
-
-        data = dict()
-
+        
+        data = {}
+        
+        # SYSTEM_STATUS_INFO
+        try:
+            rv = self.gather_system_status_metrics()
+        except psycopg.Error as error:
+            self.error(error)
+            self.alive = False
+            return None
+        else:
+            for name, value in rv:
+                if name not in SYSTEM_STATUS_METRICS:
+                    continue
+                data[SYSTEM_STATUS_METRICS[name]] = int(float(value))
+                
         return data or None
 
 
-    def gather_asp_metrics(self):
+    def gather_system_status_metrics(self):
         """
         :return:
-
+        
         [['System ASP Storage', 0],
-         ['System ASP Used', 0],
-         ['Total Auxiliary Storage', 0]]
+         ['System ASP Used', 0]]
         """
-        metrics = list()
+        metrics = []
         with self.conn.cursor() as cursor:
-            cursor.execute(QUERY_ASP)
-            for SYSTEM_ASP_STORAGE, TOTAL_AUXILIARY_STORAGE, SYSTEM_ASP_USED in cursor.fetchall():
+            cursor.execute(QUERY_SYSTEM_STATUS_INFO)
+            
+            for MAIN_STORAGE_SIZE, \
+                SYSTEM_ASP_STORAGE, \
+                SYSTEM_ASP_USED, \
+                CURRENT_CPU_CAPACITY, \
+                MAXIMUM_CPU_UTILIZATION, \
+                AVERAGE_CPU_RATE, \
+                AVERAGE_CPU_UTILIZATION, \
+                MINIMUM_CPU_UTILIZATION, \
+                TOTAL_JOBS_IN_SYSTEM, \
+                ACTIVE_JOBS_IN_SYSTEM, \
+                INTERACTIVE_JOBS_IN_SYSTEM in cursor.fetchall():
+
+                # System resources
+                if MAIN_STORAGE_SIZE is None:
+                    offline = True
+                    system_main_storage_size = 0
+                else:
+                    offline = False
+                    system_main_storage_size = float(MAIN_STORAGE_SIZE)
+                    metrics.append(["MAIN_STORAGE_SIZE", system_main_storage_size])                
+
+                # ASP metrics
                 if SYSTEM_ASP_USED is None:
                     offline = True
                     system_disk_used = 0
                 else:
                     offline = False
                     system_disk_used = float(SYSTEM_ASP_USED)
+                    metrics.append(["SYSTEM_ASP_USED", system_disk_used])
 
                 if SYSTEM_ASP_STORAGE is None:
                     system_disk_storage = 0
                 else:
                     system_disk_storage = float(SYSTEM_ASP_STORAGE)
-
-                if TOTAL_AUXILIARY_STORAGE is None:
-                    system_disk_total_auxiliary_storage = 0
+                    metrics.append(["SYSTEM_ASP_STORAGE", system_disk_storage])  
+ 
+                # CPU metrics
+                if CURRENT_CPU_CAPACITY is None:
+                    offline = True
+                    system_current_cpu_capacity = 0
                 else:
-                    system_disk_total_auxiliary_storage = float(TOTAL_AUXILIARY_STORAGE)
+                    offline = False
+                    system_current_cpu_capacity = float(CURRENT_CPU_CAPACITY)
+                    metrics.append(["CURRENT_CPU_CAPACITY", system_current_cpu_capacity])
 
-                metrics.append(
-                    [
-                        offline,
-                        system_disk_storage,
-                        system_disk_used,
-                        system_disk_total_auxiliary_storage,
-                    ]
-                )
+                if MAXIMUM_CPU_UTILIZATION is None:
+                    system_max_cpu_utilisation = 0
+                else:
+                    system_max_cpu_utilisation = float(MAXIMUM_CPU_UTILIZATION)
+                    metrics.append(["MAXIMUM_CPU_UTILIZATION", system_max_cpu_utilisation])  
+                               
+                if AVERAGE_CPU_RATE is None:
+                    system_avg_cpu_rate = 0
+                else:
+                    system_avg_cpu_rate = float(AVERAGE_CPU_RATE)
+                    metrics.append(["AVERAGE_CPU_RATE", system_avg_cpu_rate])  
+                               
+                if AVERAGE_CPU_UTILIZATION is None:
+                    system_avg_cpu_utilisation = 0
+                else:
+                    system_avg_cpu_utilisation = float(AVERAGE_CPU_UTILIZATION)
+                    metrics.append(["AVERAGE_CPU_UTILIZATION", system_avg_cpu_utilisation])  
+                               
+                if MINIMUM_CPU_UTILIZATION is None:
+                    system_min_cpu_utilisation = 0
+                else:
+                    system_min_cpu_utilisation = float(MINIMUM_CPU_UTILIZATION)
+                    metrics.append(["MINIMUM_CPU_UTILIZATION", system_min_cpu_utilisation])  
+                
+                # Jobs metrics                             
+                if TOTAL_JOBS_IN_SYSTEM is None:
+                    system_total_jobs = 0
+                else:
+                    system_total_jobs = float(TOTAL_JOBS_IN_SYSTEM)
+                    metrics.append(["TOTAL_JOBS_IN_SYSTEM", system_total_jobs])          
+
+                if ACTIVE_JOBS_IN_SYSTEM is None:
+                    system_active_jobs = 0
+                else:
+                    system_active_jobs = float(ACTIVE_JOBS_IN_SYSTEM)
+                    metrics.append(["ACTIVE_JOBS_IN_SYSTEM", system_active_jobs])   
+
+                if INTERACTIVE_JOBS_IN_SYSTEM is None:
+                    system_interactive_jobs = 0
+                else:
+                    system_interactive_jobs = float(INTERACTIVE_JOBS_IN_SYSTEM)
+                    metrics.append(["INTERACTIVE_JOBS_IN_SYSTEM", system_interactive_jobs])   
+                    
+               
         return metrics
