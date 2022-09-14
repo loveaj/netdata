@@ -9,7 +9,7 @@ from bases.FrameworkServices.SimpleService import SimpleService
 
 
 try:
-    import psycopg
+    import ibm_db_dbi as db
     HAS_DB = True
 except ImportError: 
     HAS_DB = False
@@ -61,7 +61,7 @@ SELECT
     "TOTAL_JOBS_IN_SYSTEM",
     "ACTIVE_JOBS_IN_SYSTEM",
     "INTERACTIVE_JOBS_IN_SYSTEM"
-FROM system_status_info AS ssi
+FROM qsys2.system_status_info AS ssi
 '''
 
 SYSTEM_STATUS_METRICS = {
@@ -92,18 +92,16 @@ class Service(SimpleService):
         self.conn = None
 
     def connect(self):
+        
+        conn_str=f'hostname={self.server};database={self.database};uid={self.user};pwd={self.password}'
+        
         if self.conn:
             self.conn.close()
             self.conn = None
 
         try:
-            self.conn = psycopg.connect(
-                host=self.server,
-                dbname=self.database,
-                user=self.user,
-                password=self.password
-            )
-        except psycopg.OperationalError as error:
+            self.conn = db.connect(conn_str)
+        except db.OperationalError as error:
             self.error(error)
             self.alive = False
         else:
@@ -116,7 +114,7 @@ class Service(SimpleService):
 
     def check(self):
         if not HAS_DB:
-            self.error("'psycopg' package is needed to use psycopg module")
+            self.error("'ibm_db_dbi' package is needed to use ibm_db_dbi module")
             return False
 
         if not all([
@@ -139,7 +137,7 @@ class Service(SimpleService):
         # SYSTEM_STATUS_INFO
         try:
             rv = self.gather_system_status_metrics()
-        except psycopg.Error as error:
+        except db.Error as error:
             self.error(error)
             self.alive = False
             return None

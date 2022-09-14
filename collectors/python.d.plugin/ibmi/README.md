@@ -15,7 +15,6 @@ It produces following charts:
 - System
   - CPU Utilization %
   - Interactive CPU Utilization %
-  - Scaled Speed Vs. Nominal %
   - Physical CPU % consumed in shared pool
   - Virtual CPU % consumed in shared pool
   - Disk ASP Used %
@@ -50,7 +49,7 @@ sudo ./edit-config python.d/ibmi.conf
 
 ```yaml
 remote:
-  user: 'netdata-service'
+  user: 'netdata'
   password: 'secret'
   server: '10.0.0.1'
 ```
