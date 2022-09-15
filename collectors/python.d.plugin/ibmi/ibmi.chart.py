@@ -114,7 +114,7 @@ class Service(SimpleService):
 
     def check(self):
         if not HAS_DB:
-            self.error("'ibm_db_dbi' package is needed to use ibm_db_dbi module")
+            self.error("'pyodbc' package is needed to use pyodbc module")
             return False
 
         if not all([

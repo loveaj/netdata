@@ -8,7 +8,9 @@ Monitors the performance and health metrics of the the IBM i platform (aka IBM A
 
 ## Requirements
 
--   `pyodbc` package  
+-   `pyodbc` package 
+-   `unixODBC-devel` package
+-   `gcc` and `gcc-c++` packages 
 -   IBM i Access ODBC Driver for Linux  
 
 It produces following charts:
@@ -34,15 +36,21 @@ It produces following charts:
 To use the IBM i module do the following:
 
 1.  Install `pyodbc` and `unixODBC-devel` packages:  
-    `sudo yum install pyodbc unixODBC-devel`  
+    `sudo yum install pyodbc unixODBC-devel`
+    `sudo pip3 install pyodbc`  
    
-2.  Install the IBM i Access ODBC Driver for Linux ([link](https://ibmi-oss-docs.readthedocs.io/en/latest/odbc/installation.html#linux)).  
+2.  Instal `gcc` and `gcc-c++` packages:
+    `sudo yum instyall gcc gcc-c++`  
+
+3.  Install the IBM i Access ODBC Driver for Linux ([link](https://ibmi-oss-docs.readthedocs.io/en/latest/odbc/installation.html#linux)).  
     Install the repository:  
     `curl https://public.dhe.ibm.com/software/ibmi/products/odbc/rpms/ibmi-acs.repo | sudo tee /etc/yum.repos.d/ibmi-acs.repo`  
     Install the ODBC driver:  
-    `sudo yum install --refresh ibm-iaccess`
+    `sudo yum install ibm-iaccess`  
 
-3.  Create a read-only `netdata` user with proper access to your IBM i Server.  
+*NB* The Python pyodbc package is used rather than ibm_db because the use of ibm_db from a remote client requires a paid for license from IBM. (Running it locally on the IBM i itself is free).  
+
+4.  Create a read-only `netdata` user with proper access to your IBM i Server.  
 
 
 ## Configuration
