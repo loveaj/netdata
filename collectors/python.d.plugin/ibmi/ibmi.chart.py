@@ -9,7 +9,7 @@ from bases.FrameworkServices.SimpleService import SimpleService
 
 
 try:
-    import ibm_db_dbi as db
+    import pyodbc as db
     HAS_DB = True
 except ImportError: 
     HAS_DB = False
@@ -93,7 +93,7 @@ class Service(SimpleService):
 
     def connect(self):
         
-        conn_str=f'database={self.database};hostname={self.server};port=8471;uid={self.user};pwd={self.password}'
+        conn_str=f'DRIVER=IBM i Access ODBC Driver;SYSTEM={self.server};UID={self.user};PWD={self.password}'
         
         if self.conn:
             self.conn.close()

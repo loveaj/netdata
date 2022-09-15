@@ -8,7 +8,8 @@ Monitors the performance and health metrics of the the IBM i platform (aka IBM A
 
 ## Requirements
 
--   `ibm_db` package.
+-   `pyodbc` package  
+-   IBM i Access ODBC Driver for Linux  
 
 It produces following charts:
 
@@ -32,9 +33,16 @@ It produces following charts:
 
 To use the IBM i module do the following:
 
-1.  Install `ibm_db` package ([link](https://cx-oracle.readthedocs.io/en/latest/user_guide/installation.html)).  
+1.  Install `pyodbc` package:  
+    `pip3 install pyodbc`  
+   
+2.  Install the IBM i Access ODBC Driver for Linux ([link](https://ibmi-oss-docs.readthedocs.io/en/latest/odbc/installation.html#linux)).  
+    Install the repository:  
+    `curl https://public.dhe.ibm.com/software/ibmi/products/odbc/rpms/ibmi-acs.repo | sudo tee /etc/yum.repos.d/ibmi-acs.repo`  
+    Install the ODBC driver:  
+    `sudo dnf install --refresh ibm-iaccess`
 
-2.  Create a read-only `netdata` user with proper access to your IBM i Server.  
+3.  Create a read-only `netdata` user with proper access to your IBM i Server.  
 
 
 ## Configuration
