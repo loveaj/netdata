@@ -61,7 +61,7 @@ SELECT
     "TOTAL_JOBS_IN_SYSTEM",
     "ACTIVE_JOBS_IN_SYSTEM",
     "INTERACTIVE_JOBS_IN_SYSTEM"
-FROM qsys2.system_status_info AS ssi
+FROM qsys2.system_status_info
 '''
 
 SYSTEM_STATUS_METRICS = {
@@ -93,7 +93,7 @@ class Service(SimpleService):
 
     def connect(self):
         
-        conn_str=f'hostname={self.server};database={self.database};uid={self.user};pwd={self.password}'
+        conn_str=f'database={self.database};hostname={self.server};port=8471;uid={self.user};pwd={self.password}'
         
         if self.conn:
             self.conn.close()
