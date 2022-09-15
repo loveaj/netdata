@@ -33,14 +33,14 @@ It produces following charts:
 
 To use the IBM i module do the following:
 
-1.  Install `pyodbc` package:  
-    `pip3 install pyodbc`  
+1.  Install `pyodbc` and `unixODBC-devel` packages:  
+    `sudo yum install pyodbc unixODBC-devel`  
    
 2.  Install the IBM i Access ODBC Driver for Linux ([link](https://ibmi-oss-docs.readthedocs.io/en/latest/odbc/installation.html#linux)).  
     Install the repository:  
     `curl https://public.dhe.ibm.com/software/ibmi/products/odbc/rpms/ibmi-acs.repo | sudo tee /etc/yum.repos.d/ibmi-acs.repo`  
     Install the ODBC driver:  
-    `sudo dnf install --refresh ibm-iaccess`
+    `sudo yum install --refresh ibm-iaccess`
 
 3.  Create a read-only `netdata` user with proper access to your IBM i Server.  
 
