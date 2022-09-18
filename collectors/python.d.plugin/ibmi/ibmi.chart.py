@@ -9,7 +9,11 @@ from bases.FrameworkServices.SimpleService import SimpleService
 
 
 try:
-    import pyodbc as db
+    match self.rdbms:
+        case 'db2':    
+            import pyodbc as db
+        case 'mock':
+            import psycopg as db
     HAS_DB = True
 except ImportError: 
     HAS_DB = False
@@ -91,6 +95,7 @@ class Service(SimpleService):
         SimpleService.__init__(self, configuration=configuration, name=name)
         self.order = ORDER
         self.definitions = deepcopy(CHARTS)
+        self.rdbms = configuration.get('rdbms')
         self.database = configuration.get('database')
         self.user = configuration.get('user')
         self.password = configuration.get('password')
@@ -100,14 +105,18 @@ class Service(SimpleService):
 
     def connect(self):
         
-        conn_str=f'DRIVER=IBM i Access ODBC Driver;SYSTEM={self.server};UID={self.user};PWD={self.password}'
+        match self.rdbms:
+            case 'db2':
+                dsn = f'DRIVER=IBM i Access ODBC Driver;SYSTEM={self.server};UID={self.user};PWD={self.password}'
+            case 'mock':
+                dsn = f'host={self.server},dbname={self.database},user={self.user},password={self.password}'
         
         if self.conn:
             self.conn.close()
             self.conn = None
 
         try:
-            self.conn = db.connect(conn_str)
+            self.conn = db.connect(dsn)
         except db.OperationalError as error:
             self.error(error)
             self.alive = False
@@ -121,7 +130,11 @@ class Service(SimpleService):
 
     def check(self):
         if not HAS_DB:
-            self.error("'pyodbc' package is needed to use pyodbc module")
+            match self.rdbms:
+                case 'db2':
+                    self.error("'pyodbc' package is needed to use pyodbc module")
+                case 'mock':
+                    self.error("'psycopg' package is needed to use psycopg module")
             return False
 
         if not all([
@@ -167,17 +180,17 @@ class Service(SimpleService):
         metrics = []
         with self.conn.cursor() as cursor:
             cursor.execute(QUERY_SYSTEM_STATUS_INFO)
-            
+
             for MAIN_STORAGE_SIZE, \
-                SYSTEM_ASP_STORAGE, \
-                SYSTEM_ASP_USED, \
-                CURRENT_CPU_CAPACITY, \
-                MAXIMUM_CPU_UTILIZATION, \
-                AVERAGE_CPU_UTILIZATION, \
-                MINIMUM_CPU_UTILIZATION, \
-                TOTAL_JOBS_IN_SYSTEM, \
-                ACTIVE_JOBS_IN_SYSTEM, \
-                INTERACTIVE_JOBS_IN_SYSTEM in cursor.fetchall():
+                    SYSTEM_ASP_STORAGE, \
+                    SYSTEM_ASP_USED, \
+                    CURRENT_CPU_CAPACITY, \
+                    MAXIMUM_CPU_UTILIZATION, \
+                    AVERAGE_CPU_UTILIZATION, \
+                    MINIMUM_CPU_UTILIZATION, \
+                    TOTAL_JOBS_IN_SYSTEM, \
+                    ACTIVE_JOBS_IN_SYSTEM, \
+                    INTERACTIVE_JOBS_IN_SYSTEM in cursor.fetchall():
 
                 # System resources
                 if MAIN_STORAGE_SIZE is None:
@@ -205,9 +218,7 @@ class Service(SimpleService):
                     system_disk_capacity = float(SYSTEM_ASP_STORAGE)
                     system_disk_used = system_disk_used_percent*system_disk_capacity/100
                     system_disk_free = system_disk_capacity-system_disk_used
-                    metrics.append(["SYSTEM_ASP_STORAGE_CAPACITY", system_disk_capacity])  
-                    metrics.append(["SYSTEM_ASP_STORAGE_USED", system_disk_used])  
-                    metrics.append(["SYSTEM_ASP_STORAGE_FREE", system_disk_free])  
+                    metrics.extend((["SYSTEM_ASP_STORAGE_CAPACITY", system_disk_capacity], ["SYSTEM_ASP_STORAGE_USED", system_disk_used], ["SYSTEM_ASP_STORAGE_FREE", system_disk_free]))
 
                 # CPU metrics
                 if CURRENT_CPU_CAPACITY is None:
@@ -223,19 +234,19 @@ class Service(SimpleService):
                 else:
                     system_max_cpu_utilisation = float(MAXIMUM_CPU_UTILIZATION)
                     metrics.append(["MAXIMUM_CPU_UTILIZATION", system_max_cpu_utilisation])   
-                               
+
                 if AVERAGE_CPU_UTILIZATION is None:
                     system_avg_cpu_utilisation = 0
                 else:
                     system_avg_cpu_utilisation = float(AVERAGE_CPU_UTILIZATION)
                     metrics.append(["AVERAGE_CPU_UTILIZATION", system_avg_cpu_utilisation])  
-                               
+
                 if MINIMUM_CPU_UTILIZATION is None:
                     system_min_cpu_utilisation = 0
                 else:
                     system_min_cpu_utilisation = float(MINIMUM_CPU_UTILIZATION)
                     metrics.append(["MINIMUM_CPU_UTILIZATION", system_min_cpu_utilisation])  
-                
+
                 # Jobs metrics                             
                 if TOTAL_JOBS_IN_SYSTEM is None:
                     system_total_jobs = 0
@@ -254,6 +265,6 @@ class Service(SimpleService):
                 else:
                     system_interactive_jobs = float(INTERACTIVE_JOBS_IN_SYSTEM)
                     metrics.append(["INTERACTIVE_JOBS_IN_SYSTEM", system_interactive_jobs])   
-                    
-               
+
+
         return metrics
