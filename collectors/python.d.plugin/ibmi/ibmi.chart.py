@@ -16,6 +16,7 @@ except ImportError:
 
 ORDER = [
     'asp_utilisation',
+    'asp_used_percent',
     'cpu_utilisation',
     'job_stats',
 ]
@@ -26,13 +27,13 @@ CHARTS = {
         'lines': [
             ['system_disk_capacity', 'total capacity', 'absolute', 1, 1000000],
             ['system_disk_used', 'used', 'absolute', 1, 1000000],
-            ['system_disk_free', 'free', 'absolute', 1, 1000000],
+            ['system_disk_free', 'free', 'absolute', 1, 1000000]
         ]
     },
     'asp_used_percent': {
-        'options': [None, 'System ASP Percent Used', '%', 'storage statistics', 'ibmi.asp_utilisation', 'line'],
+        'options': [None, 'System ASP Percent Used', '%', 'storage statistics', 'ibmi.asp_used_percent', 'line'],
         'lines': [
-            ['system_disk_used_percent', 'used percent', 'absolute', 1, 1],
+            ['system_disk_used_percent', 'used percent', 'absolute', 1, 1]
         ]
     },
     'cpu_utilisation': {
@@ -41,7 +42,7 @@ CHARTS = {
             ['system_current_cpu_capacity', 'total', 'absolute', 1, 1],
             ['system_avg_cpu_utilisation', 'average utilisation', 'absolute', 1, 1],
             ['system_max_cpu_utilisation', 'maximum utilisation', 'absolute', 1, 1],
-            ['system_min_cpu_utilisation', 'minimum utilisation', 'absolute', 1, 1],
+            ['system_min_cpu_utilisation', 'minimum utilisation', 'absolute', 1, 1]
         ]
     },
     'job_stats': {
@@ -49,7 +50,7 @@ CHARTS = {
         'lines': [
             ['system_total_jobs', 'total', 'absolute', 1, 1],
             ['system_active_jobs', 'active', 'absolute', 1, 1],
-            ['system_interactive_jobs', 'interactive', 'absolute', 1, 1],
+            ['system_interactive_jobs', 'interactive', 'absolute', 1, 1]
         ]
     },
 }
