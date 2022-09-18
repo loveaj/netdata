@@ -16,34 +16,41 @@ except ImportError:
 
 ORDER = [
     'asp_utilisation',
+    'asp_used_percent',
     'cpu_utilisation',
     'job_stats',
 ]
 
 CHARTS = {
     'asp_utilisation': {
-        'options': [None, 'System ASP Utilisation', '%', 'storage statistics', 'ibmi.asp_utilisation', 'line'],
+        'options': [None, 'System ASP Utilisation', 'Tb', 'storage statistics', 'ibmi.asp_utilisation', 'line'],
         'lines': [
-            ['system_disk_storage', 'total', 'absolute', 1, 1],
-            ['system_disk_used', 'used', 'absolute', 1, 1],
+            ['system_disk_capacity', 'total capacity', 'absolute', 1, 1000000],
+            ['system_disk_used', 'used', 'absolute', 1, 1000000],
+            ['system_disk_free', 'free', 'absolute', 1, 1000000]
+        ]
+    },
+    'asp_used_percent': {
+        'options': [None, 'System ASP Percent Used', '%', 'storage statistics', 'ibmi.asp_used_percent', 'line'],
+        'lines': [
+            ['system_disk_used_percent', 'used percent', 'absolute', 1, 1]
         ]
     },
     'cpu_utilisation': {
         'options': [None, 'System CPU Utilisation', '%', 'cpu statistics', 'ibmi.cpu_utilisation', 'line'],
         'lines': [
             ['system_current_cpu_capacity', 'total', 'absolute', 1, 1],
-            ['system_avg_cpu_rate', 'average rate', 'absolute', 1, 1],
             ['system_avg_cpu_utilisation', 'average utilisation', 'absolute', 1, 1],
             ['system_max_cpu_utilisation', 'maximum utilisation', 'absolute', 1, 1],
-            ['system_min_cpu_utilisation', 'minimum utilisation', 'absolute', 1, 1],
+            ['system_min_cpu_utilisation', 'minimum utilisation', 'absolute', 1, 1]
         ]
     },
     'job_stats': {
-        'options': [None, 'System Job Statistics', '%', 'job statistics', 'ibmi.job_stats', 'line'],
+        'options': [None, 'System Job Statistics', 'Count', 'job statistics', 'ibmi.job_stats', 'line'],
         'lines': [
             ['system_total_jobs', 'total', 'absolute', 1, 1],
             ['system_active_jobs', 'active', 'absolute', 1, 1],
-            ['system_interactive_jobs', 'interactive', 'absolute', 1, 1],
+            ['system_interactive_jobs', 'interactive', 'absolute', 1, 1]
         ]
     },
 }
@@ -55,7 +62,6 @@ SELECT
     "SYSTEM_ASP_USED",
     "CURRENT_CPU_CAPACITY",
     "MAXIMUM_CPU_UTILIZATION",
-    "AVERAGE_CPU_RATE",
     "AVERAGE_CPU_UTILIZATION",
     "MINIMUM_CPU_UTILIZATION",
     "TOTAL_JOBS_IN_SYSTEM",
@@ -66,11 +72,12 @@ FROM qsys2.system_status_info
 
 SYSTEM_STATUS_METRICS = {
     'MAIN_STORAGE_SIZE':'system_main_storage_size',
-    'SYSTEM_ASP_STORAGE':'system_disk_storage',
-    'SYSTEM_ASP_USED':'system_disk_used',
+    'SYSTEM_ASP_STORAGE_CAPACITY':'system_disk_capacity',
+    'SYSTEM_ASP_STOARGE_USED_PERCENT':'system_disk_used_percent',
+    'SYSTEM_ASP_STORAGE_USED':'system_disk_used',
+    'SYSTEM_ASP_STORAGE_FREE':'system_disk_free',
     'CURRENT_CPU_CAPACITY':'system_current_cpu_capacity',
     'MAXIMUM_CPU_UTILIZATION':'system_max_cpu_utilisation',
-    'AVERAGE_CPU_RATE':'system_avg_cpu_rate',
     'AVERAGE_CPU_UTILIZATION':'system_avg_cpu_utilisation',
     'MINIMUM_CPU_UTILIZATION':'system_min_cpu_utilisation',
     'TOTAL_JOBS_IN_SYSTEM':'system_total_jobs',
@@ -166,7 +173,6 @@ class Service(SimpleService):
                 SYSTEM_ASP_USED, \
                 CURRENT_CPU_CAPACITY, \
                 MAXIMUM_CPU_UTILIZATION, \
-                AVERAGE_CPU_RATE, \
                 AVERAGE_CPU_UTILIZATION, \
                 MINIMUM_CPU_UTILIZATION, \
                 TOTAL_JOBS_IN_SYSTEM, \
@@ -185,18 +191,24 @@ class Service(SimpleService):
                 # ASP metrics
                 if SYSTEM_ASP_USED is None:
                     offline = True
-                    system_disk_used = 0
+                    system_disk_used_percent = 0
                 else:
                     offline = False
-                    system_disk_used = float(SYSTEM_ASP_USED)
-                    metrics.append(["SYSTEM_ASP_USED", system_disk_used])
+                    system_disk_used_percent = float(SYSTEM_ASP_USED)
+                    metrics.append(["SYSTEM_ASP_STORAGE_USED_PERCENT", system_disk_used_percent])
 
                 if SYSTEM_ASP_STORAGE is None:
-                    system_disk_storage = 0
+                    system_disk_capacity = 0
+                    system_disk_used = 0
+                    system_disk_free = 0
                 else:
-                    system_disk_storage = float(SYSTEM_ASP_STORAGE)
-                    metrics.append(["SYSTEM_ASP_STORAGE", system_disk_storage])  
- 
+                    system_disk_capacity = float(SYSTEM_ASP_STORAGE)
+                    system_disk_used = system_disk_used_percent*system_disk_capacity/100
+                    system_disk_free = system_disk_capacity-system_disk_used
+                    metrics.append(["SYSTEM_ASP_STORAGE_CAPACITY", system_disk_capacity])  
+                    metrics.append(["SYSTEM_ASP_STORAGE_USED", system_disk_used])  
+                    metrics.append(["SYSTEM_ASP_STORAGE_FREE", system_disk_free])  
+
                 # CPU metrics
                 if CURRENT_CPU_CAPACITY is None:
                     offline = True
@@ -210,13 +222,7 @@ class Service(SimpleService):
                     system_max_cpu_utilisation = 0
                 else:
                     system_max_cpu_utilisation = float(MAXIMUM_CPU_UTILIZATION)
-                    metrics.append(["MAXIMUM_CPU_UTILIZATION", system_max_cpu_utilisation])  
-                               
-                if AVERAGE_CPU_RATE is None:
-                    system_avg_cpu_rate = 0
-                else:
-                    system_avg_cpu_rate = float(AVERAGE_CPU_RATE)
-                    metrics.append(["AVERAGE_CPU_RATE", system_avg_cpu_rate])  
+                    metrics.append(["MAXIMUM_CPU_UTILIZATION", system_max_cpu_utilisation])   
                                
                 if AVERAGE_CPU_UTILIZATION is None:
                     system_avg_cpu_utilisation = 0
