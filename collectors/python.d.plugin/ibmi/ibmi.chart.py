@@ -4,16 +4,12 @@
 
 from copy import deepcopy
 from xml.etree.ElementTree import tostring
-
 from bases.FrameworkServices.SimpleService import SimpleService
 
 
 try:
-    match self.rdbms:
-        case 'db2':    
-            import pyodbc as db
-        case 'mock':
-            import psycopg as db
+    import pyodbc as dbdb2
+    import psycopg as dbmock
     HAS_DB = True
 except ImportError: 
     HAS_DB = False
@@ -27,36 +23,36 @@ ORDER = [
 
 CHARTS = {
     'asp_utilisation': {
-        'options': [None, 'System ASP Utilisation', 'Tb', 'storage statistics', 'ibmi.asp_utilisation', 'line'],
+        'options': [None, 'System ASP Utilisation', 'Tb', 'storage statistics', 'ibmi.asp_utilisation', 'line'], 
         'lines': [
-            ['system_disk_capacity', 'total capacity', 'absolute', 1, 1000000],
-            ['system_disk_used', 'used', 'absolute', 1, 1000000],
+            ['system_disk_capacity', 'total capacity', 'absolute', 1, 1000000], 
+            ['system_disk_used', 'used', 'absolute', 1, 1000000], 
             ['system_disk_free', 'free', 'absolute', 1, 1000000]
         ]
-    },
+    }, 
     'asp_used_percent': {
-        'options': [None, 'System ASP Percent Used', '%', 'storage statistics', 'ibmi.asp_used_percent', 'line'],
+        'options': [None, 'System ASP Percent Used', '%', 'storage statistics', 'ibmi.asp_used_percent', 'line'], 
         'lines': [
             ['system_disk_used_percent', 'used percent', 'absolute', 1, 1]
         ]
-    },
+    }, 
     'cpu_utilisation': {
-        'options': [None, 'System CPU Utilisation', '%', 'cpu statistics', 'ibmi.cpu_utilisation', 'line'],
+        'options': [None, 'System CPU Utilisation', '%', 'cpu statistics', 'ibmi.cpu_utilisation', 'line'], 
         'lines': [
-            ['system_current_cpu_capacity', 'total', 'absolute', 1, 1],
-            ['system_avg_cpu_utilisation', 'average utilisation', 'absolute', 1, 1],
-            ['system_max_cpu_utilisation', 'maximum utilisation', 'absolute', 1, 1],
+            ['system_current_cpu_capacity', 'total', 'absolute', 1, 1], 
+            ['system_avg_cpu_utilisation', 'average utilisation', 'absolute', 1, 1], 
+            ['system_max_cpu_utilisation', 'maximum utilisation', 'absolute', 1, 1], 
             ['system_min_cpu_utilisation', 'minimum utilisation', 'absolute', 1, 1]
         ]
-    },
+    }, 
     'job_stats': {
-        'options': [None, 'System Job Statistics', 'Count', 'job statistics', 'ibmi.job_stats', 'line'],
+        'options': [None, 'System Job Statistics', 'Count', 'job statistics', 'ibmi.job_stats', 'line'], 
         'lines': [
-            ['system_total_jobs', 'total', 'absolute', 1, 1],
-            ['system_active_jobs', 'active', 'absolute', 1, 1],
+            ['system_total_jobs', 'total', 'absolute', 1, 1], 
+            ['system_active_jobs', 'active', 'absolute', 1, 1], 
             ['system_interactive_jobs', 'interactive', 'absolute', 1, 1]
         ]
-    },
+    }
 }
 
 QUERY_SYSTEM_STATUS_INFO = '''
@@ -77,7 +73,7 @@ FROM qsys2.system_status_info
 SYSTEM_STATUS_METRICS = {
     'MAIN_STORAGE_SIZE':'system_main_storage_size',
     'SYSTEM_ASP_STORAGE_CAPACITY':'system_disk_capacity',
-    'SYSTEM_ASP_STOARGE_USED_PERCENT':'system_disk_used_percent',
+    'SYSTEM_ASP_STORAGE_USED_PERCENT':'system_disk_used_percent',
     'SYSTEM_ASP_STORAGE_USED':'system_disk_used',
     'SYSTEM_ASP_STORAGE_FREE':'system_disk_free',
     'CURRENT_CPU_CAPACITY':'system_current_cpu_capacity',
@@ -108,22 +104,39 @@ class Service(SimpleService):
         match self.rdbms:
             case 'db2':
                 dsn = f'DRIVER=IBM i Access ODBC Driver;SYSTEM={self.server};UID={self.user};PWD={self.password}'
+                self.db = dbdb2
             case 'mock':
-                dsn = f'host={self.server},dbname={self.database},user={self.user},password={self.password}'
-        
+                self.db = dbmock
+            case _:
+                HAS_DB = False
+                self.alive = False
+                return self.alive
+                
         if self.conn:
             self.conn.close()
             self.conn = None
 
         try:
-            self.conn = db.connect(dsn)
-        except db.OperationalError as error:
+            match self.rdbms:
+                case 'db2':
+                    self.conn = self.db.connect(dsn)
+                case 'mock':
+                    self.conn = self.db.connect(
+                        host=self.server,
+                        dbname=self.database,
+                        user=self.user,
+                        password=self.password
+                    )
+                case _:
+                    raise self.db.OperationalError("Invalid database type in ibmi.conf")
+        except self.db.OperationalError as error:
             self.error(error)
             self.alive = False
         else:
             self.alive = True
 
         return self.alive
+
 
     def reconnect(self):
         return self.connect()
@@ -135,6 +148,8 @@ class Service(SimpleService):
                     self.error("'pyodbc' package is needed to use pyodbc module")
                 case 'mock':
                     self.error("'psycopg' package is needed to use psycopg module")
+                case _:
+                    self.error("Invalid database type in ibmi.conf")
             return False
 
         if not all([
@@ -157,7 +172,7 @@ class Service(SimpleService):
         # SYSTEM_STATUS_INFO
         try:
             rv = self.gather_system_status_metrics()
-        except db.Error as error:
+        except self.db.Error as error:
             self.error(error)
             self.alive = False
             return None
@@ -182,15 +197,15 @@ class Service(SimpleService):
             cursor.execute(QUERY_SYSTEM_STATUS_INFO)
 
             for MAIN_STORAGE_SIZE, \
-                    SYSTEM_ASP_STORAGE, \
-                    SYSTEM_ASP_USED, \
-                    CURRENT_CPU_CAPACITY, \
-                    MAXIMUM_CPU_UTILIZATION, \
-                    AVERAGE_CPU_UTILIZATION, \
-                    MINIMUM_CPU_UTILIZATION, \
-                    TOTAL_JOBS_IN_SYSTEM, \
-                    ACTIVE_JOBS_IN_SYSTEM, \
-                    INTERACTIVE_JOBS_IN_SYSTEM in cursor.fetchall():
+                SYSTEM_ASP_STORAGE, \
+                SYSTEM_ASP_USED, \
+                CURRENT_CPU_CAPACITY, \
+                MAXIMUM_CPU_UTILIZATION, \
+                AVERAGE_CPU_UTILIZATION, \
+                MINIMUM_CPU_UTILIZATION, \
+                TOTAL_JOBS_IN_SYSTEM, \
+                ACTIVE_JOBS_IN_SYSTEM, \
+                INTERACTIVE_JOBS_IN_SYSTEM in cursor.fetchall():
 
                 # System resources
                 if MAIN_STORAGE_SIZE is None:

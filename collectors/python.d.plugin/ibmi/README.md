@@ -9,6 +9,7 @@ Monitors the performance and health metrics of the the IBM i platform (aka IBM A
 ## Requirements
 
 -   `pyodbc` package 
+-   `psycopg` package  
 -   `unixODBC-devel` package
 -   `gcc` and `gcc-c++` packages 
 -   IBM i Access ODBC Driver for Linux  
@@ -35,9 +36,9 @@ It produces following charts:
 
 To use the IBM i module do the following:
 
-1.  Install `pyodbc` and `unixODBC-devel` packages:  
+1.  Install `pyodbc`,`psycopg` and `unixODBC-devel` packages:  
     `sudo yum install pyodbc unixODBC-devel`
-    `sudo pip3 install pyodbc`  
+    `sudo pip3 install pyodbc psycopg`  
    
 2.  Instal `gcc` and `gcc-c++` packages:
     `sudo yum instyall gcc gcc-c++`  
@@ -65,6 +66,8 @@ sudo ./edit-config python.d/ibmi.conf
 
 ```yaml
 remote:
+  rdbms: 'db2'
+  database: 'LPARNAME'
   user: 'netdata'
   password: 'secret'
   server: '10.0.0.1'
@@ -82,3 +85,19 @@ Netdata custom plugin config `/opt/homebrew/etc/netdata/python.d`
 ### MacOS
 Netdata custom plugin `/opt/homebrew/opt/netdata/libexec/netdata/python.d`  
 Netdata custom plugin config `/etc/netdata/python.d`  
+
+## Creating a mock system_status_info database for local development  
+### Install Postgresql
+`sudo yum install http://apt.postgresql.org/pub/repos/yum/reporpms/F-36-x86_64/pgdg-fedora-repo-latest.noarch.rpm`
+`sudo yum install postgresql-server`
+`sudo yum install postgresql-docs`
+`sudo yum install postgresql-devel`
+`sudo yum install postgresql14-libs postgresql14-odbc postgresql14-plperl postgresql14-plpython3 postgresql14-pltcl postgresql14-tcl postgresql14-contrib postgresql14-llvmjit`  
+
+`sudo systemctl enable --now postgresql-14`
+`sudo /usr/pgsql-14/bin/postgresql-14-setup initdb`
+
+### Create a netdata user and set permissions
+
+### Import mock data table
+
