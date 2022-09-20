@@ -147,36 +147,34 @@ class Service(SimpleService):
         Returns:
             self.alive: A boolean indicating whether the remote connecion alive or not.
         """
-        match self.rdbms:
-            case 'db2':
-                dsn = f'DRIVER=IBM i Access ODBC Driver; \
-                    SYSTEM={self.server}; \
-                    UID={self.user}; \
-                    PWD={self.password}'
-                self.db = dbdb2
-            case 'mock':
-                self.db = dbmock
-            case _:
-                self.alive = False
-                return self.alive
+        if self.rdbms == 'db2':
+            dsn = f'DRIVER=IBM i Access ODBC Driver; \
+                SYSTEM={self.server}; \
+                UID={self.user}; \
+                PWD={self.password}'
+            self.db = dbdb2
+        elif self.rdbms == 'mock':
+            self.db = dbmock
+        else:
+            self.alive = False
+            return self.alive
 
         if self.conn:
             self.conn.close()
             self.conn = None
 
         try:
-            match self.rdbms:
-                case 'db2':
-                    self.conn = self.db.connect(dsn)
-                case 'mock':
-                    self.conn = self.db.connect(
-                        host=self.server,
-                        dbname=self.database,
-                        user=self.user,
-                        password=self.password
-                    )
-                case _:
-                    raise self.db.OperationalError("Invalid database type in ibmi.conf")
+            if self.rdbms == 'db2':
+                self.conn = self.db.connect(dsn)
+            elif self.rdbms == 'mock':
+                self.conn = self.db.connect(
+                    host=self.server,
+                    dbname=self.database,
+                    user=self.user,
+                    password=self.password
+                )
+            else:
+                raise self.db.OperationalError("Invalid database type in ibmi.conf")
         except self.db.OperationalError as error:
             self.error(error)
             self.alive = False
@@ -206,13 +204,12 @@ class Service(SimpleService):
             A boolean indicating if metrics data was retrieved successfully form teh remote system.
         """
         if not HAS_DB:
-            match self.rdbms:
-                case 'db2':
-                    self.error("'pyodbc' package is needed to use pyodbc module")
-                case 'mock':
-                    self.error("'psycopg' package is needed to use psycopg module")
-                case _:
-                    self.error("Invalid database type in ibmi.conf")
+            if self.rdbms == 'db2':
+                self.error("'pyodbc' package is needed to use pyodbc module")
+            elif self.rdbms == 'mock':
+                self.error("'psycopg' package is needed to use psycopg module")
+            else:
+                self.error("Invalid database type in ibmi.conf")
             return False
 
         if not all([
