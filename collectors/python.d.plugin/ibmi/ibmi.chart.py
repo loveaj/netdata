@@ -1,9 +1,12 @@
-# -*- coding: utf-8 -*-
-# Description: IBM i netdata python.d external collector module
-# Author: Andrew Love
+"""Netdata python.d external collector module for IBM i.
+
+An external Netdata collector module that periodically polls a remote
+IBM i Power system for key system metrics.
+"""
 
 from copy import deepcopy
 from xml.etree.ElementTree import tostring
+from xmlrpc.client import boolean
 from bases.FrameworkServices.SimpleService import SimpleService
 
 
@@ -87,7 +90,22 @@ SYSTEM_STATUS_METRICS = {
 
 
 class Service(SimpleService):
+    """Implementation of the Netdata SimpleSevice class.
+    
+    It is the lowest-level class which implements most of module logic, like:
+
+        - threading
+        - handling run times
+        - chart formatting
+        - logging
+        - chart creation and updating
+
+    Args:
+        SimpleService (configuration): Configuration object.
+    """
     def __init__(self, configuration=None, name=None):
+        """Initialiser.
+        """
         SimpleService.__init__(self, configuration=configuration, name=name)
         self.order = ORDER
         self.definitions = deepcopy(CHARTS)
@@ -99,8 +117,17 @@ class Service(SimpleService):
         self.alive = False
         self.conn = None
 
-    def connect(self):
+    def connect(self) -> boolean:
+        """Connects to remote system for metrics data collection.
         
+        Connect to the remote RDBMS using the mock or DB2 ODBC driver, depending on config.
+
+        Raises:
+            self.db.OperationalError: There's been an error connecting to the remote system.
+            
+        Returns:
+            self.alive: A boolean indicating whether the remote connecion alive or not.
+        """
         match self.rdbms:
             case 'db2':
                 dsn = f'DRIVER=IBM i Access ODBC Driver;SYSTEM={self.server};UID={self.user};PWD={self.password}'
@@ -138,10 +165,25 @@ class Service(SimpleService):
         return self.alive
 
 
-    def reconnect(self):
+    def reconnect(self) -> boolean:
+        """Reconnects to remote system for metrics data collection.
+        
+        Reconnects a broken remote system connection.
+
+        Returns:
+            self.alive: A boolean indicating whether the remote connecion alive or not.
+        """
         return self.connect()
 
-    def check(self):
+    def check(self) -> boolean:
+        """Checks metrics data collection from the remote system.
+        
+        Retrieve raw data from the remote system and return True if all data is received otherwise 
+        it should return False. 
+
+        Returns:
+            A boolean indicating if metrics data was retrieved successfully form teh remote system.
+        """
         if not HAS_DB:
             match self.rdbms:
                 case 'db2':
@@ -163,7 +205,14 @@ class Service(SimpleService):
         
         return bool(self.get_data()) if self.connect() else False
 
-    def get_data(self):         
+    def get_data(self) -> dict[str,int]:
+        """Get the required metrics data from the remote system.
+        
+        Retrieve the required metrics data from teh remote system
+
+        Returns:
+            data: A dict of required metrics data.
+        """
         if not self.alive and not self.reconnect():
             return None
         
@@ -185,12 +234,14 @@ class Service(SimpleService):
         return data or None
 
 
-    def gather_system_status_metrics(self):
-        """
-        :return:
+    def gather_system_status_metrics(self) -> list[str, str]:
+        """Gather the raw metrics data into name value pairs.
         
-        [['System ASP Storage', 0],
-         ['System ASP Used', 0]]
+        Access the remote system and query the metrics database. 
+        Format the results.
+
+        Returns:
+            metrics: A list of name, value pairs for teh raw metrics data.
         """
         metrics = []
         with self.conn.cursor() as cursor:
