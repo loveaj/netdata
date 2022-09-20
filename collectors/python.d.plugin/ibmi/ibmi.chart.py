@@ -5,7 +5,6 @@ IBM i Power system for key system metrics.
 """
 
 from copy import deepcopy
-from xml.etree.ElementTree import tostring
 from xmlrpc.client import boolean
 from bases.FrameworkServices.SimpleService import SimpleService
 
@@ -14,7 +13,7 @@ try:
     import pyodbc as dbdb2
     import psycopg as dbmock
     HAS_DB = True
-except ImportError: 
+except ImportError:
     HAS_DB = False
 
 ORDER = [
@@ -26,33 +25,52 @@ ORDER = [
 
 CHARTS = {
     'asp_utilisation': {
-        'options': [None, 'System ASP Utilisation', 'Tb', 'storage statistics', 'ibmi.asp_utilisation', 'line'], 
+        'options': [None, \
+            'System ASP Utilisation', \
+            'Tb', \
+            'storage statistics', \
+            'ibmi.asp_utilisation', 'line'],
         'lines': [
-            ['system_disk_capacity', 'total capacity', 'absolute', 1, 1000000], 
-            ['system_disk_used', 'used', 'absolute', 1, 1000000], 
+            ['system_disk_capacity', 'total capacity', 'absolute', 1, 1000000],
+            ['system_disk_used', 'used', 'absolute', 1, 1000000],
             ['system_disk_free', 'free', 'absolute', 1, 1000000]
         ]
-    }, 
+    },
     'asp_used_percent': {
-        'options': [None, 'System ASP Percent Used', '%', 'storage statistics', 'ibmi.asp_used_percent', 'line'], 
+        'options': [None, \
+            'System ASP Percent Used', \
+            '%', \
+            'storage statistics', \
+            'ibmi.asp_used_percent', \
+            'line'],
         'lines': [
             ['system_disk_used_percent', 'used percent', 'absolute', 1, 1]
         ]
-    }, 
+    },
     'cpu_utilisation': {
-        'options': [None, 'System CPU Utilisation', '%', 'cpu statistics', 'ibmi.cpu_utilisation', 'line'], 
+        'options': [None, \
+            'System CPU Utilisation', \
+            '%', \
+            'cpu statistics', \
+            'ibmi.cpu_utilisation', \
+            'line'],
         'lines': [
-            ['system_current_cpu_capacity', 'total', 'absolute', 1, 1], 
-            ['system_avg_cpu_utilisation', 'average utilisation', 'absolute', 1, 1], 
-            ['system_max_cpu_utilisation', 'maximum utilisation', 'absolute', 1, 1], 
+            ['system_current_cpu_capacity', 'total', 'absolute', 1, 1],
+            ['system_avg_cpu_utilisation', 'average utilisation', 'absolute', 1, 1],
+            ['system_max_cpu_utilisation', 'maximum utilisation', 'absolute', 1, 1],
             ['system_min_cpu_utilisation', 'minimum utilisation', 'absolute', 1, 1]
         ]
-    }, 
+    },
     'job_stats': {
-        'options': [None, 'System Job Statistics', 'Count', 'job statistics', 'ibmi.job_stats', 'line'], 
+        'options': [None, \
+            'System Job Statistics', \
+            'Count', \
+            'job statistics', \
+            'ibmi.job_stats', \
+            'line'],
         'lines': [
-            ['system_total_jobs', 'total', 'absolute', 1, 1], 
-            ['system_active_jobs', 'active', 'absolute', 1, 1], 
+            ['system_total_jobs', 'total', 'absolute', 1, 1],
+            ['system_active_jobs', 'active', 'absolute', 1, 1],
             ['system_interactive_jobs', 'interactive', 'absolute', 1, 1]
         ]
     }
@@ -91,7 +109,7 @@ SYSTEM_STATUS_METRICS = {
 
 class Service(SimpleService):
     """Implementation of the Netdata SimpleSevice class.
-    
+
     It is the lowest-level class which implements most of module logic, like:
 
         - threading
@@ -116,29 +134,32 @@ class Service(SimpleService):
         self.server = configuration.get('server')
         self.alive = False
         self.conn = None
+        self.db = ""
 
     def connect(self) -> boolean:
         """Connects to remote system for metrics data collection.
-        
+
         Connect to the remote RDBMS using the mock or DB2 ODBC driver, depending on config.
 
         Raises:
             self.db.OperationalError: There's been an error connecting to the remote system.
-            
+
         Returns:
             self.alive: A boolean indicating whether the remote connecion alive or not.
         """
         match self.rdbms:
             case 'db2':
-                dsn = f'DRIVER=IBM i Access ODBC Driver;SYSTEM={self.server};UID={self.user};PWD={self.password}'
+                dsn = f'DRIVER=IBM i Access ODBC Driver; \
+                    SYSTEM={self.server}; \
+                    UID={self.user}; \
+                    PWD={self.password}'
                 self.db = dbdb2
             case 'mock':
                 self.db = dbmock
             case _:
-                HAS_DB = False
                 self.alive = False
                 return self.alive
-                
+
         if self.conn:
             self.conn.close()
             self.conn = None
@@ -167,7 +188,7 @@ class Service(SimpleService):
 
     def reconnect(self) -> boolean:
         """Reconnects to remote system for metrics data collection.
-        
+
         Reconnects a broken remote system connection.
 
         Returns:
@@ -177,9 +198,9 @@ class Service(SimpleService):
 
     def check(self) -> boolean:
         """Checks metrics data collection from the remote system.
-        
-        Retrieve raw data from the remote system and return True if all data is received otherwise 
-        it should return False. 
+
+        Retrieve raw data from the remote system and return True if all data is received otherwise
+        it should return False.
 
         Returns:
             A boolean indicating if metrics data was retrieved successfully form teh remote system.
@@ -202,12 +223,12 @@ class Service(SimpleService):
         ]):
             self.error("one of these parameters is not specified: database, user, password, server")
             return False
-        
+
         return bool(self.get_data()) if self.connect() else False
 
     def get_data(self) -> dict[str,int]:
         """Get the required metrics data from the remote system.
-        
+
         Retrieve the required metrics data from teh remote system
 
         Returns:
@@ -215,9 +236,9 @@ class Service(SimpleService):
         """
         if not self.alive and not self.reconnect():
             return None
-        
+
         data = {}
-        
+
         # SYSTEM_STATUS_INFO
         try:
             rv = self.gather_system_status_metrics()
@@ -230,14 +251,14 @@ class Service(SimpleService):
                 if name not in SYSTEM_STATUS_METRICS:
                     continue
                 data[SYSTEM_STATUS_METRICS[name]] = int(float(value))
-                
+
         return data or None
 
 
     def gather_system_status_metrics(self) -> list[str, str]:
         """Gather the raw metrics data into name value pairs.
-        
-        Access the remote system and query the metrics database. 
+
+        Access the remote system and query the metrics database.
         Format the results.
 
         Returns:
@@ -260,19 +281,15 @@ class Service(SimpleService):
 
                 # System resources
                 if MAIN_STORAGE_SIZE is None:
-                    offline = True
                     system_main_storage_size = 0
                 else:
-                    offline = False
                     system_main_storage_size = float(MAIN_STORAGE_SIZE)
-                    metrics.append(["MAIN_STORAGE_SIZE", system_main_storage_size])                
+                    metrics.append(["MAIN_STORAGE_SIZE", system_main_storage_size])
 
                 # ASP metrics
                 if SYSTEM_ASP_USED is None:
-                    offline = True
                     system_disk_used_percent = 0
                 else:
-                    offline = False
                     system_disk_used_percent = float(SYSTEM_ASP_USED)
                     metrics.append(["SYSTEM_ASP_STORAGE_USED_PERCENT", system_disk_used_percent])
 
@@ -284,14 +301,14 @@ class Service(SimpleService):
                     system_disk_capacity = float(SYSTEM_ASP_STORAGE)
                     system_disk_used = system_disk_used_percent*system_disk_capacity/100
                     system_disk_free = system_disk_capacity-system_disk_used
-                    metrics.extend((["SYSTEM_ASP_STORAGE_CAPACITY", system_disk_capacity], ["SYSTEM_ASP_STORAGE_USED", system_disk_used], ["SYSTEM_ASP_STORAGE_FREE", system_disk_free]))
+                    metrics.extend((["SYSTEM_ASP_STORAGE_CAPACITY", system_disk_capacity], \
+                        ["SYSTEM_ASP_STORAGE_USED", system_disk_used], \
+                        ["SYSTEM_ASP_STORAGE_FREE", system_disk_free]))
 
                 # CPU metrics
                 if CURRENT_CPU_CAPACITY is None:
-                    offline = True
                     system_current_cpu_capacity = 0
                 else:
-                    offline = False
                     system_current_cpu_capacity = float(CURRENT_CPU_CAPACITY)
                     metrics.append(["CURRENT_CPU_CAPACITY", system_current_cpu_capacity])
 
@@ -299,38 +316,38 @@ class Service(SimpleService):
                     system_max_cpu_utilisation = 0
                 else:
                     system_max_cpu_utilisation = float(MAXIMUM_CPU_UTILIZATION)
-                    metrics.append(["MAXIMUM_CPU_UTILIZATION", system_max_cpu_utilisation])   
+                    metrics.append(["MAXIMUM_CPU_UTILIZATION", system_max_cpu_utilisation])
 
                 if AVERAGE_CPU_UTILIZATION is None:
                     system_avg_cpu_utilisation = 0
                 else:
                     system_avg_cpu_utilisation = float(AVERAGE_CPU_UTILIZATION)
-                    metrics.append(["AVERAGE_CPU_UTILIZATION", system_avg_cpu_utilisation])  
+                    metrics.append(["AVERAGE_CPU_UTILIZATION", system_avg_cpu_utilisation])
 
                 if MINIMUM_CPU_UTILIZATION is None:
                     system_min_cpu_utilisation = 0
                 else:
                     system_min_cpu_utilisation = float(MINIMUM_CPU_UTILIZATION)
-                    metrics.append(["MINIMUM_CPU_UTILIZATION", system_min_cpu_utilisation])  
+                    metrics.append(["MINIMUM_CPU_UTILIZATION", system_min_cpu_utilisation])
 
-                # Jobs metrics                             
+                # Jobs metrics
                 if TOTAL_JOBS_IN_SYSTEM is None:
                     system_total_jobs = 0
                 else:
                     system_total_jobs = float(TOTAL_JOBS_IN_SYSTEM)
-                    metrics.append(["TOTAL_JOBS_IN_SYSTEM", system_total_jobs])          
+                    metrics.append(["TOTAL_JOBS_IN_SYSTEM", system_total_jobs])
 
                 if ACTIVE_JOBS_IN_SYSTEM is None:
                     system_active_jobs = 0
                 else:
                     system_active_jobs = float(ACTIVE_JOBS_IN_SYSTEM)
-                    metrics.append(["ACTIVE_JOBS_IN_SYSTEM", system_active_jobs])   
+                    metrics.append(["ACTIVE_JOBS_IN_SYSTEM", system_active_jobs])
 
                 if INTERACTIVE_JOBS_IN_SYSTEM is None:
                     system_interactive_jobs = 0
                 else:
                     system_interactive_jobs = float(INTERACTIVE_JOBS_IN_SYSTEM)
-                    metrics.append(["INTERACTIVE_JOBS_IN_SYSTEM", system_interactive_jobs])   
+                    metrics.append(["INTERACTIVE_JOBS_IN_SYSTEM", system_interactive_jobs])
 
 
         return metrics
