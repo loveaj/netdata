@@ -136,7 +136,7 @@ class Service(SimpleService):
         self.conn = None
         self.db = ""
 
-    def connect(self) -> boolean:
+    def connect(self):
         """Connects to remote system for metrics data collection.
 
         Connect to the remote RDBMS using the mock or DB2 ODBC driver, depending on config.
@@ -184,7 +184,7 @@ class Service(SimpleService):
         return self.alive
 
 
-    def reconnect(self) -> boolean:
+    def reconnect(self):
         """Reconnects to remote system for metrics data collection.
 
         Reconnects a broken remote system connection.
@@ -194,7 +194,7 @@ class Service(SimpleService):
         """
         return self.connect()
 
-    def check(self) -> boolean:
+    def check(self):
         """Checks metrics data collection from the remote system.
 
         Retrieve raw data from the remote system and return True if all data is received otherwise
@@ -223,7 +223,7 @@ class Service(SimpleService):
 
         return bool(self.get_data()) if self.connect() else False
 
-    def get_data(self) -> dict[str,int]:
+    def get_data(self):
         """Get the required metrics data from the remote system.
 
         Retrieve the required metrics data from teh remote system
@@ -252,7 +252,7 @@ class Service(SimpleService):
         return data or None
 
 
-    def gather_system_status_metrics(self) -> list[str, str]:
+    def gather_system_status_metrics(self):
         """Gather the raw metrics data into name value pairs.
 
         Access the remote system and query the metrics database.
