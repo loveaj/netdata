@@ -11,7 +11,7 @@ from bases.FrameworkServices.SimpleService import SimpleService
 
 try:
     import pyodbc as dbdb2
-    import psycopg as dbmock
+    import psycopg2 as dbmock
     HAS_DB = True
 except ImportError:
     HAS_DB = False
