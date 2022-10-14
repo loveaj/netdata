@@ -41,7 +41,7 @@ To use the IBM i module do the following:
     `sudo pip3 install pyodbc psycopg`  
    
 2.  Instal `gcc` and `gcc-c++` packages:
-    `sudo yum instyall gcc gcc-c++`  
+    `sudo yum install gcc gcc-c++`  
 
 3.  Install the IBM i Access ODBC Driver for Linux ([link](https://ibmi-oss-docs.readthedocs.io/en/latest/odbc/installation.html#linux)).  
     Install the repository:  
