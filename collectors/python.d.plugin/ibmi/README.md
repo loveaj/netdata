@@ -9,7 +9,7 @@ Monitors the performance and health metrics of the the IBM i platform (aka IBM A
 ## Requirements
 
 -   `pyodbc` package 
--   `psycopg` package  
+-   `psycopg2` package  
 -   `unixODBC-devel` package
 -   `gcc` and `gcc-c++` packages 
 -   IBM i Access ODBC Driver for Linux  
@@ -37,8 +37,7 @@ It produces following charts:
 To use the IBM i module do the following:
 
 1.  Install `pyodbc`,`psycopg` and `unixODBC-devel` packages:  
-    `sudo yum install pyodbc unixODBC-devel`
-    `sudo pip3 install pyodbc psycopg`  
+    `sudo yum install pyodbc unixODBC-devel python3-psycopg2`
    
 2.  Instal `gcc` and `gcc-c++` packages:
     `sudo yum install gcc gcc-c++`  
