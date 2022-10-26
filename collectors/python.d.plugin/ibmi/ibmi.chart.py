@@ -88,7 +88,7 @@ SELECT
     "TOTAL_JOBS_IN_SYSTEM",
     "ACTIVE_JOBS_IN_SYSTEM",
     "INTERACTIVE_JOBS_IN_SYSTEM"
-FROM qsys2.system_status_info
+FROM qsys2.system_status_info_basic
 '''
 
 SYSTEM_STATUS_METRICS = {
