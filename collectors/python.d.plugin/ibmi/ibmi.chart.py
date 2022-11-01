@@ -21,6 +21,15 @@ ORDER = [
     'asp_used_percent',
     'cpu_utilisation',
     'job_stats',
+    'memory_current_size',
+    'memory_database_faults',
+    'memory_nondatabase_faults',
+    'memory_total_faults',
+    'memory_database_pages',
+    'memory_nondatabase_pages',
+    'memory_active_to_wait',
+    'memory_wait_to_ineligible',
+    'memory_active_to_ineligible'
 ]
 
 CHARTS = {
@@ -29,7 +38,8 @@ CHARTS = {
             'System ASP Utilisation', \
             'Tb', \
             'storage statistics', \
-            'ibmi.asp_utilisation', 'line'],
+            'ibmi.asp_utilisation', \
+            'line'],
         'lines': [
             ['system_disk_capacity', 'total capacity', 'absolute', 1, 1000000],
             ['system_disk_used', 'used', 'absolute', 1, 1000000],
@@ -73,6 +83,87 @@ CHARTS = {
             ['system_active_jobs', 'active', 'absolute', 1, 1],
             ['system_interactive_jobs', 'interactive', 'absolute', 1, 1]
         ]
+    },
+    'memory_current_size': {
+        'options': [None, \
+            'Memory Pool Current Size', \
+            'Mb', \
+            'memory statistics', \
+            'ibmi.memory_pool_current_size', \
+            'line'],
+        'lines': []
+    },
+    'memory_database_faults': {
+        'options': [None, \
+            'Database Page Faults', \
+            'Faults/s', \
+            'memory statistics', \
+            'ibmi.memory_database_faults', \
+            'line'],
+        'lines': []
+    },
+    'memory_nondatabase_faults': {
+        'options': [None, \
+            'NonDatabase Page Faults', \
+            'Faults/s', \
+            'memory statistics', \
+            'ibmi.memory_nondatabase_faults', \
+            'line'],
+        'lines': []
+    },
+    'memory_total_faults': {
+        'options': [None, \
+            'Total Page Faults', \
+            'Faults/s', \
+            'memory statistics', \
+            'ibmi.memory_total_faults', \
+            'line'],
+        'lines': []
+    },
+    'memory_database_pages': {
+        'options': [None, \
+            'Database Pages into Memory Pool', \
+            'Pages/s', \
+            'memory statistics', \
+            'ibmi.memory_database_pages', \
+            'line'],
+        'lines': []
+    },
+    'memory_nondatabase_pages': {
+        'options': [None, \
+            'NonDatabase Pages into Memory Pool', \
+            'Pages/s', \
+            'memory statistics', \
+            'ibmi.memory_nondatabase_pages', \
+            'line'],
+        'lines': []
+    },
+    'memory_active_to_wait': {
+        'options': [None, \
+            'Thread Transitions from Active to Wait', \
+            'Transitions/m', \
+            'memory statistics', \
+            'ibmi.memory_active_to_wait', \
+            'line'],
+        'lines': []
+    },
+    'memory_wait_to_ineligible': {
+        'options': [None, \
+            'Thread Transitions from Wait to Ineligible', \
+            'Transitions/m', \
+            'memory statistics', \
+            'ibmi.memory_wait_to_ineligible', \
+            'line'],
+        'lines': []
+    },
+    'memory_active_to_ineligible': {
+        'options': [None, \
+            'Thread Transitions from Active to Ineligible', \
+            'Transitions/m', \
+            'memory statistics', \
+            'ibmi.memory_active_to_ineligible', \
+            'line'],
+        'lines': []
     }
 }
 
@@ -91,6 +182,21 @@ SELECT
 FROM qsys2.system_status_info_basic
 '''
 
+QUERY_MEMORY_POOL_INFO = '''
+SELECT
+    "POOL_NAME",
+    "CURRENT_SIZE",
+    "ELAPSED_DATABASE_FAULTS",
+    "ELAPSED_NON_DATABASE_FAULTS",
+    "ELAPSED_TOTAL_FAULTS",
+    "ELAPSED_DATABASE_PAGES",
+    "ELAPSED_NON_DATABASE_PAGES",
+    "ELAPSED_ACTIVE_TO_WAIT",
+    "ELAPSED_WAIT_TO_INELIGIBLE",
+    "ELAPSED_ACTIVE_TO_INELIGIBLE"
+FROM qsys2.memory_pool_info
+'''
+
 SYSTEM_STATUS_METRICS = {
     'MAIN_STORAGE_SIZE':'system_main_storage_size',
     'SYSTEM_ASP_STORAGE_CAPACITY':'system_disk_capacity',
@@ -106,6 +212,18 @@ SYSTEM_STATUS_METRICS = {
     'INTERACTIVE_JOBS_IN_SYSTEM':'system_interactive_jobs'
 }
 
+MEMORY_POOL_METRICS = {
+    'POOL_NAME':'memory_pool_name',
+    'CURRENT_SIZE':'memory_current_size',
+    'ELAPSED_DATABASE_FAULTS':'memory_database_faults',
+    'ELAPSED_NON_DATABASE_FAULTS':'memory_nondatabase_faults',
+    'ELAPSED_TOTAL_FAULTS':'memory_total_faults',
+    'ELAPSED_DATABASE_PAGES':'memory_database_pages',
+    'ELAPSED_NON_DATABASE_PAGES':'memory_nondatabase_pages',
+    'ELAPSED_ACTIVE_TO_WAIT':'memory_active_to_wait',
+    'ELAPSED_WAIT_TO_INELIGIBLE':'memory_wait_to_ineligible',
+    'ELAPSED_ACTIVE_TO_INELIGIBLE':'memory_active_to_ineligible'
+}
 
 class Service(SimpleService):
     """Implementation of the Netdata SimpleSevice class.
@@ -135,6 +253,7 @@ class Service(SimpleService):
         self.alive = False
         self.conn = None
         self.db = ""
+        self.active_memory_pools = set()
 
     def connect(self):
         """Connects to remote system for metrics data collection.
@@ -249,17 +368,54 @@ class Service(SimpleService):
                     continue
                 data[SYSTEM_STATUS_METRICS[name]] = int(float(value))
 
+
+        # MEMORY_POOL_INFO
+        try:
+            rv = self.gather_memory_pool_metrics()
+        except self.db.Error as error:
+            self.error(error)
+            self.alive = False
+            return None
+        else:
+            for memory_pool_name, \
+                memory_current_size, \
+                memory_database_faults, \
+                memory_nondatabase_faults, \
+                memory_total_faults, \
+                memory_database_pages, \
+                memory_nondatabase_pages, \
+                memory_active_to_wait, \
+                memory_wait_to_ineligible, \
+                memory_active_to_ineligible in rv:
+                    
+                if not (self.charts):
+                    continue
+                if memory_pool_name not in self.active_memory_pools:
+                    self.active_memory_pools.add(memory_pool_name)
+                    self.add_memory_pool_to_charts(memory_pool_name)
+                data['{0}_memory_current_size'.format(memory_pool_name)] = memory_current_size
+                data['{0}_memory_database_faults'.format(memory_pool_name)] = memory_database_faults
+                data['{0}_memory_nondatabase_faults'.format(memory_pool_name)] = memory_nondatabase_faults
+                data['{0}_memory_total_faults'.format(memory_pool_name)] = memory_total_faults
+                data['{0}_memory_database_pages'.format(memory_pool_name)] = memory_database_pages
+                data['{0}_memory_nondatabase_pages'.format(memory_pool_name)] = memory_nondatabase_pages
+                data['{0}_memory_active_to_wait'.format(memory_pool_name)] = memory_active_to_wait
+                data['{0}_memory_wait_to_ineligible'.format(memory_pool_name)] = memory_wait_to_ineligible
+                data['{0}_memory_active_to_ineligible'.format(memory_pool_name)] = memory_active_to_ineligible    
+                
+            print(data)     
+
         return data or None
 
 
     def gather_system_status_metrics(self):
-        """Gather the raw metrics data into name value pairs.
+        """Gather the raw system metrics data into name value pairs.
 
         Access the remote system and query the metrics database.
         Format the results.
 
         Returns:
-            metrics: A list of name, value pairs for teh raw metrics data.
+            metrics: A list of name, value pairs for the raw system metrics data.
         """
         metrics = []
         with self.conn.cursor() as cursor:
@@ -348,3 +504,169 @@ class Service(SimpleService):
 
 
         return metrics
+
+
+    def gather_memory_pool_metrics(self):
+        """Gather the raw memory pool metrics data into name value pairs.
+
+        Access the remote system and query the metrics database.
+        Format the results.
+
+        Returns:
+            metrics: A list of name, value pairs for the raw memory pooll metrics data.
+        """
+        metrics = []
+        with self.conn.cursor() as cursor:
+            cursor.execute(QUERY_MEMORY_POOL_INFO)
+            for POOL_NAME, \
+                CURRENT_SIZE, \
+                ELAPSED_DATABASE_FAULTS, \
+                ELAPSED_NON_DATABASE_FAULTS, \
+                ELAPSED_TOTAL_FAULTS, \
+                ELAPSED_DATABASE_PAGES, \
+                ELAPSED_NON_DATABASE_PAGES, \
+                ELAPSED_ACTIVE_TO_WAIT, \
+                ELAPSED_WAIT_TO_INELIGIBLE, \
+                ELAPSED_ACTIVE_TO_INELIGIBLE in cursor.fetchall():
+
+                # Memort pool resources
+                if POOL_NAME is None:
+                    memory_pool_name = "unavailable"
+                else:
+                    memory_pool_name = POOL_NAME
+
+                if CURRENT_SIZE is None:
+                    memory_current_size = 0
+                else:
+                    memory_current_size = float(CURRENT_SIZE)
+
+                if ELAPSED_DATABASE_FAULTS is None:
+                    memory_database_faults = 0
+                else:
+                    memory_database_faults = int(ELAPSED_DATABASE_FAULTS)
+
+                if ELAPSED_NON_DATABASE_FAULTS is None:
+                    memory_nondatabase_faults = 0
+                else:
+                    memory_nondatabase_faults = int(ELAPSED_NON_DATABASE_FAULTS)
+
+                if ELAPSED_TOTAL_FAULTS is None:
+                    memory_total_faults = 0
+                else:
+                    memory_total_faults = int(ELAPSED_TOTAL_FAULTS)
+
+                if ELAPSED_DATABASE_PAGES is None:
+                    memory_database_pages = 0
+                else:
+                    memory_database_pages = int(ELAPSED_DATABASE_PAGES)
+
+                if ELAPSED_NON_DATABASE_PAGES is None:
+                    memory_nondatabase_pages = 0
+                else:
+                    memory_nondatabase_pages = int(ELAPSED_NON_DATABASE_PAGES)
+
+                if ELAPSED_ACTIVE_TO_WAIT is None:
+                    memory_active_to_wait = 0
+                else:
+                    memory_active_to_wait = int(ELAPSED_ACTIVE_TO_WAIT)
+
+                if ELAPSED_WAIT_TO_INELIGIBLE is None:
+                    memory_wait_to_ineligible = 0
+                else:
+                    memory_wait_to_ineligible = int(ELAPSED_WAIT_TO_INELIGIBLE)
+
+                if ELAPSED_ACTIVE_TO_INELIGIBLE is None:
+                    memory_active_to_ineligible = 0
+                else:
+                    memory_active_to_ineligible = int(ELAPSED_ACTIVE_TO_INELIGIBLE)
+
+                metrics.append([
+                    memory_pool_name,
+                    memory_current_size,
+                    memory_database_faults,
+                    memory_nondatabase_faults,
+                    memory_total_faults,
+                    memory_database_pages,
+                    memory_nondatabase_pages,
+                    memory_active_to_wait,
+                    memory_wait_to_ineligible,
+                    memory_active_to_ineligible
+                    ])
+        return metrics
+
+    def add_memory_pool_to_charts(self, memory_pool_name):
+        print("Pool name=>")
+        print(memory_pool_name)
+        self.charts['memory_current_size'].add_dimension(
+            [
+                '{0}_memory_current_size'.format(memory_pool_name),
+                memory_pool_name,
+                'absolute',
+                1,
+                1,
+            ])
+        self.charts['memory_database_faults'].add_dimension(
+            [
+                '{0}_memory_database_faults'.format(memory_pool_name),
+                memory_pool_name,
+                'absolute',
+                1,
+                1,
+            ])
+        self.charts['memory_nondatabase_faults'].add_dimension(
+            [
+                '{0}_memory_nondatabase_faults'.format(memory_pool_name),
+                memory_pool_name,
+                'absolute',
+                1,
+                1,
+            ])
+        self.charts['memory_total_faults'].add_dimension(
+            [
+                '{0}_memory_total_faults'.format(memory_pool_name),
+                memory_pool_name,
+                'absolute',
+                1,
+                1,
+            ])
+        self.charts['memory_database_pages'].add_dimension(
+            [
+                '{0}_memory_database_page'.format(memory_pool_name),
+                memory_pool_name,
+                'absolute',
+                1,
+                1,
+            ])
+        self.charts['memory_nondatabase_pages'].add_dimension(
+            [
+                '{0}_memory_nondatabase_page'.format(memory_pool_name),
+                memory_pool_name,
+                'absolute',
+                1,
+                1,
+            ])
+        self.charts['memory_active_to_wait'].add_dimension(
+            [
+                '{0}_memory_active_to_wait'.format(memory_pool_name),
+                memory_pool_name,
+                'absolute',
+                1,
+                1,
+            ])
+        self.charts['memory_wait_to_ineligible'].add_dimension(
+            [
+                '{0}_memory_wait_to_ineligible'.format(memory_pool_name),
+                memory_pool_name,
+                'absolute',
+                1,
+                1,
+            ])
+        self.charts['memory_active_to_ineligible'].add_dimension(
+            [
+                '{0}_memory_active_to_ineligible'.format(memory_pool_name),
+                memory_pool_name,
+                'absolute',
+                1,
+                1,
+            ])
+        

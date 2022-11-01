@@ -631,14 +631,7 @@ class Service(SimpleService):
         return metrics
 
     def gather_tablespace_metrics(self):
-        """
-        :return:
 
-        [['SYSTEM', 874250240.0, 3233169408.0, 27.040038107400033, 0],
-         ['SYSAUX', 498860032.0, 3233169408.0, 15.429443033997678, 0],
-         ['TEMP', 0.0, 3233177600.0, 0.0, 0],
-         ['USERS', 1048576.0, 3233169408.0, 0.03243182981397305, 0]]
-        """
         metrics = list()
         with self.conn.cursor() as cursor:
             cursor.execute(QUERY_TABLESPACE)
