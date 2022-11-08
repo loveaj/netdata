@@ -403,8 +403,6 @@ class Service(SimpleService):
                 data['{0}_memory_wait_to_ineligible'.format(memory_pool_name)] = memory_wait_to_ineligible
                 data['{0}_memory_active_to_ineligible'.format(memory_pool_name)] = memory_active_to_ineligible    
                 
-            print(data)     
-
         return data or None
 
 
@@ -595,8 +593,7 @@ class Service(SimpleService):
         return metrics
 
     def add_memory_pool_to_charts(self, memory_pool_name):
-        print("Pool name=>")
-        print(memory_pool_name)
+
         self.charts['memory_current_size'].add_dimension(
             [
                 '{0}_memory_current_size'.format(memory_pool_name),
