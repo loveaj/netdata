@@ -628,7 +628,7 @@ class Service(SimpleService):
             ])
         self.charts['memory_database_pages'].add_dimension(
             [
-                '{0}_memory_database_page'.format(memory_pool_name),
+                '{0}_memory_database_pages'.format(memory_pool_name),
                 memory_pool_name,
                 'absolute',
                 1,
@@ -636,7 +636,7 @@ class Service(SimpleService):
             ])
         self.charts['memory_nondatabase_pages'].add_dimension(
             [
-                '{0}_memory_nondatabase_page'.format(memory_pool_name),
+                '{0}_memory_nondatabase_pages'.format(memory_pool_name),
                 memory_pool_name,
                 'absolute',
                 1,
