@@ -167,6 +167,11 @@ CHARTS = {
     }
 }
 
+# To-do
+# Add Temp ASP stats from qsys2.system_status_info_basic
+# Add jobq metrics
+# Add job level wait details
+
 QUERY_SYSTEM_STATUS_INFO = '''
 SELECT 
     "MAIN_STORAGE_SIZE",
