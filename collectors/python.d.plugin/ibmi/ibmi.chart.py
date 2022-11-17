@@ -19,6 +19,7 @@ except ImportError:
 ORDER = [
     'asp_utilisation',
     'asp_used_percent',
+    'temp_storage_utilisation',
     'cpu_utilisation',
     'job_stats',
     'memory_current_size',
@@ -55,6 +56,18 @@ CHARTS = {
             'line'],
         'lines': [
             ['system_disk_used_percent', 'used percent', 'absolute', 1, 1]
+        ]
+    },
+    'temp_storage_utilisation': {
+        'options': [None, \
+            'System Temporary Storage Utilisation', \
+            'Tb', \
+            'storage statistics', \
+            'ibmi.temp_storage_utilisation', \
+            'line'],
+        'lines': [
+            ['system_current_temp_storage_used', 'temporary storage used', 'absolute', 1, 1000000],
+            ['system_max_temp_storage_used', 'maximum temporary storage used', 'absolute', 1, 1000000]
         ]
     },
     'cpu_utilisation': {
@@ -177,6 +190,8 @@ SELECT
     "MAIN_STORAGE_SIZE",
     "SYSTEM_ASP_STORAGE",
     "SYSTEM_ASP_USED",
+    "CURRENT_TEMPORARY_STORAGE",
+    "MAXIMUM_TEMPORARY_STORAGE_USED",
     "CURRENT_CPU_CAPACITY",
     "MAXIMUM_CPU_UTILIZATION",
     "AVERAGE_CPU_UTILIZATION",
@@ -208,6 +223,8 @@ SYSTEM_STATUS_METRICS = {
     'SYSTEM_ASP_STORAGE_USED_PERCENT':'system_disk_used_percent',
     'SYSTEM_ASP_STORAGE_USED':'system_disk_used',
     'SYSTEM_ASP_STORAGE_FREE':'system_disk_free',
+    'CURRENT_TEMPORARY_STORAGE':'system_current_temp_storage_used',
+    'MAXIMUM_TEMPORARY_STORAGE_USED':'system_max_temp_storage_used',
     'CURRENT_CPU_CAPACITY':'system_current_cpu_capacity',
     'MAXIMUM_CPU_UTILIZATION':'system_max_cpu_utilisation',
     'AVERAGE_CPU_UTILIZATION':'system_avg_cpu_utilisation',
@@ -427,6 +444,8 @@ class Service(SimpleService):
             for MAIN_STORAGE_SIZE, \
                 SYSTEM_ASP_STORAGE, \
                 SYSTEM_ASP_USED, \
+                CURRENT_TEMPORARY_STORAGE, \
+                MAXIMUM_TEMPORARY_STORAGE_USED, \
                 CURRENT_CPU_CAPACITY, \
                 MAXIMUM_CPU_UTILIZATION, \
                 AVERAGE_CPU_UTILIZATION, \
@@ -460,6 +479,18 @@ class Service(SimpleService):
                     metrics.extend((["SYSTEM_ASP_STORAGE_CAPACITY", system_disk_capacity], \
                         ["SYSTEM_ASP_STORAGE_USED", system_disk_used], \
                         ["SYSTEM_ASP_STORAGE_FREE", system_disk_free]))
+
+                if CURRENT_TEMPORARY_STORAGE is None:
+                    system_current_temp_storage_used = 0
+                else:
+                    system_current_temp_storage_used = float(CURRENT_TEMPORARY_STORAGE)
+                    metrics.append(["CURRENT_TEMPORARY_STORAGE", system_current_temp_storage_used])
+
+                if MAXIMUM_TEMPORARY_STORAGE_USED is None:
+                    system_max_temp_storage_used = 0
+                else:
+                    system_max_temp_storage_used = float(MAXIMUM_TEMPORARY_STORAGE_USED)
+                    metrics.append(["MAXIMUM_TEMPORARY_STORAGE_USED", system_max_temp_storage_used])
 
                 # CPU metrics
                 if CURRENT_CPU_CAPACITY is None:
