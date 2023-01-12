@@ -78,12 +78,12 @@ All parameters are required. Without them module will fail to start.
 ## OS specifics
 
 ### Linux
-Netdata custom plugin `/usr/libexec/netdata/python.d`  
-Netdata custom plugin config `/opt/homebrew/etc/netdata/python.d`  
+Netdata custom plugin requires `ibmi.chart.py` to be copied to `/usr/libexec/netdata/python.d`  
+Netdata custom plugin config requires `ibmi.conf` to be copied to `/etc/netdata/python.d`  
 
 ### MacOS
-Netdata custom plugin `/opt/homebrew/opt/netdata/libexec/netdata/python.d`  
-Netdata custom plugin config `/etc/netdata/python.d`  
+Netdata custom plugin requires `ibmi.chart.py` to be copied to `/opt/homebrew/opt/netdata/libexec/netdata/python.d`  
+Netdata custom plugin config requires `ibmi.conf` to be copied to `/opt/homebrew/etc/netdata/python.d`  
 
 ## Creating a mock system_status_info database for local development  
 ### Install Postgresql
