@@ -37,7 +37,7 @@ It produces following charts:
 To use the IBM i module do the following:
 
 1.  Install `pyodbc`,`psycopg` and `unixODBC-devel` packages:  
-    `sudo yum install pyodbc unixODBC-devel python3-psycopg2`
+    `sudo yum install  python3-pyodbc unixODBC-devel python3-psycopg2`
    
 2.  Instal `gcc` and `gcc-c++` packages:
     `sudo yum install gcc gcc-c++`  
