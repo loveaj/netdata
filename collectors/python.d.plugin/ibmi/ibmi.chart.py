@@ -78,7 +78,7 @@ CHARTS = {
             'ibmi.cpu_utilisation', \
             'line'],
         'lines': [
-            ['system_current_cpu_capacity', 'total', 'absolute', 1, 1],
+            ['system_avg_cpu_rate', 'average rate', 'absolute', 1, 1],
             ['system_avg_cpu_utilisation', 'average utilisation', 'absolute', 1, 1],
             ['system_max_cpu_utilisation', 'maximum utilisation', 'absolute', 1, 1],
             ['system_min_cpu_utilisation', 'minimum utilisation', 'absolute', 1, 1]
@@ -181,7 +181,8 @@ CHARTS = {
 }
 
 # To-do
-# Add Temp ASP stats from qsys2.system_status_info_basic
+# Add Temp ASP stats
+# Add CPU stats
 # Add jobq metrics
 # Add job level wait details
 
@@ -192,14 +193,19 @@ SELECT
     "SYSTEM_ASP_USED",
     "CURRENT_TEMPORARY_STORAGE",
     "MAXIMUM_TEMPORARY_STORAGE_USED",
-    "CURRENT_CPU_CAPACITY",
-    "MAXIMUM_CPU_UTILIZATION",
-    "AVERAGE_CPU_UTILIZATION",
-    "MINIMUM_CPU_UTILIZATION",
     "TOTAL_JOBS_IN_SYSTEM",
     "ACTIVE_JOBS_IN_SYSTEM",
     "INTERACTIVE_JOBS_IN_SYSTEM"
 FROM qsys2.system_status_info_basic
+'''
+
+QUERY_CPU_ACTIVITY_INFO = '''
+SELECT 
+    "AVERAGE_CPU_RATE",
+    "AVERAGE_CPU_UTILIZATION",
+    "MINIMUM_CPU_UTILIZATION",
+    "MAXIMUM_CPU_UTILIZATION"
+FROM qsys2.system_actvity_info
 '''
 
 QUERY_MEMORY_POOL_INFO = '''
@@ -225,13 +231,16 @@ SYSTEM_STATUS_METRICS = {
     'SYSTEM_ASP_STORAGE_FREE':'system_disk_free',
     'CURRENT_TEMPORARY_STORAGE':'system_current_temp_storage_used',
     'MAXIMUM_TEMPORARY_STORAGE_USED':'system_max_temp_storage_used',
-    'CURRENT_CPU_CAPACITY':'system_current_cpu_capacity',
-    'MAXIMUM_CPU_UTILIZATION':'system_max_cpu_utilisation',
-    'AVERAGE_CPU_UTILIZATION':'system_avg_cpu_utilisation',
-    'MINIMUM_CPU_UTILIZATION':'system_min_cpu_utilisation',
     'TOTAL_JOBS_IN_SYSTEM':'system_total_jobs',
     'ACTIVE_JOBS_IN_SYSTEM':'system_active_jobs',
     'INTERACTIVE_JOBS_IN_SYSTEM':'system_interactive_jobs'
+}
+
+CPU_ACTIVITY_METRICS = {
+    'AVERAGE_CPU_RATE':'system_avg_cpu_rate',
+    'AVERAGE_CPU_UTILIZATION':'system_avg_cpu_utilisation',    
+    'MINIMUM_CPU_UTILIZATION':'system_min_cpu_utilisation',
+    'MAXIMUM_CPU_UTILIZATION':'system_max_cpu_utilisation'
 }
 
 MEMORY_POOL_METRICS = {
@@ -390,6 +399,19 @@ class Service(SimpleService):
                     continue
                 data[SYSTEM_STATUS_METRICS[name]] = int(float(value))
 
+        # CPU_ACTIVITY_INFO
+        try:
+            rv = self.gather_system_cpu_activity_metrics()
+        except self.db.Error as error:
+            self.error(error)
+            self.alive = False
+            return None
+        else:
+            for name, value in rv:
+                if name not in CPU_ACTIVITY_METRICS:
+                    continue
+                data[CPU_ACTIVITY_METRICS[name]] = int(float(value))
+
 
         # MEMORY_POOL_INFO
         try:
@@ -446,10 +468,6 @@ class Service(SimpleService):
                 SYSTEM_ASP_USED, \
                 CURRENT_TEMPORARY_STORAGE, \
                 MAXIMUM_TEMPORARY_STORAGE_USED, \
-                CURRENT_CPU_CAPACITY, \
-                MAXIMUM_CPU_UTILIZATION, \
-                AVERAGE_CPU_UTILIZATION, \
-                MINIMUM_CPU_UTILIZATION, \
                 TOTAL_JOBS_IN_SYSTEM, \
                 ACTIVE_JOBS_IN_SYSTEM, \
                 INTERACTIVE_JOBS_IN_SYSTEM in cursor.fetchall():
@@ -492,31 +510,6 @@ class Service(SimpleService):
                     system_max_temp_storage_used = float(MAXIMUM_TEMPORARY_STORAGE_USED)
                     metrics.append(["MAXIMUM_TEMPORARY_STORAGE_USED", system_max_temp_storage_used])
 
-                # CPU metrics
-                if CURRENT_CPU_CAPACITY is None:
-                    system_current_cpu_capacity = 0
-                else:
-                    system_current_cpu_capacity = float(CURRENT_CPU_CAPACITY)
-                    metrics.append(["CURRENT_CPU_CAPACITY", system_current_cpu_capacity])
-
-                if MAXIMUM_CPU_UTILIZATION is None:
-                    system_max_cpu_utilisation = 0
-                else:
-                    system_max_cpu_utilisation = float(MAXIMUM_CPU_UTILIZATION)
-                    metrics.append(["MAXIMUM_CPU_UTILIZATION", system_max_cpu_utilisation])
-
-                if AVERAGE_CPU_UTILIZATION is None:
-                    system_avg_cpu_utilisation = 0
-                else:
-                    system_avg_cpu_utilisation = float(AVERAGE_CPU_UTILIZATION)
-                    metrics.append(["AVERAGE_CPU_UTILIZATION", system_avg_cpu_utilisation])
-
-                if MINIMUM_CPU_UTILIZATION is None:
-                    system_min_cpu_utilisation = 0
-                else:
-                    system_min_cpu_utilisation = float(MINIMUM_CPU_UTILIZATION)
-                    metrics.append(["MINIMUM_CPU_UTILIZATION", system_min_cpu_utilisation])
-
                 # Jobs metrics
                 if TOTAL_JOBS_IN_SYSTEM is None:
                     system_total_jobs = 0
@@ -536,6 +529,51 @@ class Service(SimpleService):
                     system_interactive_jobs = float(INTERACTIVE_JOBS_IN_SYSTEM)
                     metrics.append(["INTERACTIVE_JOBS_IN_SYSTEM", system_interactive_jobs])
 
+
+        return metrics
+
+    def gather_system_cpu_activity_metrics(self):
+        """Gather the raw cpu activity data into name value pairs.
+
+        Access the remote system and query the metrics database.
+        Format the results.
+
+        Returns:
+            metrics: A list of name, value pairs for the raw cpu activity metrics data.
+        """
+        metrics = []
+        with self.conn.cursor() as cursor:
+            cursor.execute(QUERY_CPU_ACTIVITY_INFO)
+
+            for AVERAGE_CPU_RATE, \
+                AVERAGE_CPU_UTILIZATION, \
+                MINIMUM_CPU_UTILIZATION, \
+                MAXIMUM_CPU_UTILIZATION in cursor.fetchall():
+
+                # CPU metrics
+                if AVERAGE_CPU_RATE is None:
+                    system_avg_cpu_rate = 0
+                else:
+                    system_avg_cpu_rate = float(AVERAGE_CPU_RATE)
+                    metrics.append(["AVERAGE_CPU_RATE", system_avg_cpu_rate])
+
+                if AVERAGE_CPU_UTILIZATION is None:
+                    system_avg_cpu_utilisation = 0
+                else:
+                    system_avg_cpu_utilisation = float(AVERAGE_CPU_UTILIZATION)
+                    metrics.append(["AVERAGE_CPU_UTILIZATION", system_avg_cpu_utilisation])
+ 
+                if MINIMUM_CPU_UTILIZATION is None:
+                    system_min_cpu_utilisation = 0
+                else:
+                    system_min_cpu_utilisation = float(MINIMUM_CPU_UTILIZATION)
+                    metrics.append(["MINIMUM_CPU_UTILIZATION", system_min_cpu_utilisation])
+                                       
+                if MAXIMUM_CPU_UTILIZATION is None:
+                    system_max_cpu_utilisation = 0
+                else:
+                    system_max_cpu_utilisation = float(MAXIMUM_CPU_UTILIZATION)
+                    metrics.append(["MAXIMUM_CPU_UTILIZATION", system_max_cpu_utilisation])
 
         return metrics
 
