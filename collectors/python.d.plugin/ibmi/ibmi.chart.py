@@ -205,7 +205,7 @@ SELECT
     "AVERAGE_CPU_UTILIZATION",
     "MINIMUM_CPU_UTILIZATION",
     "MAXIMUM_CPU_UTILIZATION"
-FROM qsys2.system_actvity_info
+FROM TABLE(qsys2.system_activity_info())
 '''
 
 QUERY_MEMORY_POOL_INFO = '''
